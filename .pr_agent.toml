@@ -1,0 +1,3 @@
+[config]
+model = "google/gemini-3-flash-preview"
+ai_provider = "google"
