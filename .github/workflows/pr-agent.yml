@@ -18,5 +18,7 @@ jobs:
         id: pragent
         uses: Codium-ai/pr-agent@main
         env:
-          OPENAI_KEY: ${{ secrets.GEMINI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOGLE_AI_STUDIO.KEY: ${{ secrets.GEMINI_KEY }}
+          CONFIG.AI_PROVIDER: "google"
+          CONFIG.MODEL: "google/gemini-3-flash-preview"
