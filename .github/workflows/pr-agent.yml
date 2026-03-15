@@ -1,6 +1,8 @@
 on:
   pull_request:
     types: [opened, reopened, ready_for_review]
+  push:
+    branches-ignore: [main]
   issue_comment:
     types: [created, edited]
 
