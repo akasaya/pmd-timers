@@ -167,6 +167,11 @@ class SettingsDialog(QDialog):
         end_row.addWidget(self._end_label)
         trim_form.addRow("終了位置:", end_row)
 
+        # Trim sliders only make sense for WAV files
+        _init_path = self._settings.notifications.custom_sound_path
+        self._trim_widget.setVisible(
+            not _init_path or Path(_init_path).suffix.lower() == ".wav"
+        )
         ui_form.addRow("", self._trim_widget)
 
         self._notify_desktop_check = QCheckBox("デスクトップ通知を表示")
@@ -306,16 +311,20 @@ class SettingsDialog(QDialog):
 
     def _browse_sound(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "通知音ファイルを選択", "", "WAV files (*.wav)"
+            self, "通知音ファイルを選択", "",
+            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
         )
         if not path:
             return
         self._settings.notifications.custom_sound_path = path
         self._sound_name_label.setText(Path(path).name)
-        dur = _wav_duration(path)
+        is_wav = Path(path).suffix.lower() == ".wav"
+        dur = _wav_duration(path) if is_wav else None
         over = dur is not None and dur > _MAX_SOUND_SEC
         self._sound_warn_label.setVisible(over)
-        self._update_trim_sliders()
+        self._trim_widget.setVisible(is_wav)
+        if is_wav:
+            self._update_trim_sliders()
 
     def _preview_sound(self) -> None:
         # Temporarily reflect current UI state so preview respects it
@@ -343,7 +352,8 @@ class SettingsDialog(QDialog):
 
     def _browse_work_bgm(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "作業中BGMファイルを選択", "", "WAV files (*.wav)"
+            self, "作業中BGMファイルを選択", "",
+            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
         )
         if path:
             self._settings.bgm.work_bgm_path = path
@@ -351,7 +361,8 @@ class SettingsDialog(QDialog):
 
     def _browse_break_bgm(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "休憩中BGMファイルを選択", "", "WAV files (*.wav)"
+            self, "休憩中BGMファイルを選択", "",
+            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
         )
         if path:
             self._settings.bgm.break_bgm_path = path

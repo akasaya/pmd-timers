@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -14,17 +14,21 @@ def settings():
     return AppSettings()
 
 
-@pytest.fixture
-def settings_with_work_bgm(tmp_path):
-    import wave, struct
-    wav = tmp_path / "work.wav"
+def _make_wav(tmp_path, name="test.wav"):
+    import struct, wave
+    wav = tmp_path / name
     with wave.open(str(wav), "w") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(44100)
         w.writeframes(struct.pack("<h", 0) * 100)
+    return str(wav)
+
+
+@pytest.fixture
+def settings_with_work_bgm(tmp_path):
     s = AppSettings()
-    s.bgm.work_bgm_path = str(wav)
+    s.bgm.work_bgm_path = _make_wav(tmp_path, "work.wav")
     s.bgm.work_bgm_enabled = True
     s.bgm.work_bgm_volume = 0.8
     return s
@@ -32,15 +36,8 @@ def settings_with_work_bgm(tmp_path):
 
 @pytest.fixture
 def settings_with_break_bgm(tmp_path):
-    import wave, struct
-    wav = tmp_path / "break.wav"
-    with wave.open(str(wav), "w") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(44100)
-        w.writeframes(struct.pack("<h", 0) * 100)
     s = AppSettings()
-    s.bgm.break_bgm_path = str(wav)
+    s.bgm.break_bgm_path = _make_wav(tmp_path, "break.wav")
     s.bgm.break_bgm_enabled = True
     return s
 
@@ -50,15 +47,15 @@ class TestBgmService:
         """on_phase_changed(WORKING) does nothing when work_bgm_enabled is False."""
         from src.services.bgm_service import BgmService
         svc = BgmService(settings)
-        with patch.object(svc._effect_work, "play") as mock_play:
+        with patch.object(svc._work, "play") as mock_play:
             svc.on_phase_changed(Phase.WORKING)
             mock_play.assert_not_called()
 
     def test_work_bgm_plays_on_working_phase(self, settings_with_work_bgm):
-        """on_phase_changed(WORKING) calls play() on work effect when enabled."""
+        """on_phase_changed(WORKING) calls play() on work player when enabled."""
         from src.services.bgm_service import BgmService
         svc = BgmService(settings_with_work_bgm)
-        with patch.object(svc._effect_work, "play") as mock_play:
+        with patch.object(svc._work, "play") as mock_play:
             svc.on_phase_changed(Phase.WORKING)
             mock_play.assert_called_once()
 
@@ -66,7 +63,7 @@ class TestBgmService:
         """on_phase_changed(SHORT_BREAK) plays break BGM."""
         from src.services.bgm_service import BgmService
         svc = BgmService(settings_with_break_bgm)
-        with patch.object(svc._effect_break, "play") as mock_play:
+        with patch.object(svc._break, "play") as mock_play:
             svc.on_phase_changed(Phase.SHORT_BREAK)
             mock_play.assert_called_once()
 
@@ -74,7 +71,7 @@ class TestBgmService:
         """on_phase_changed(LONG_BREAK) plays break BGM."""
         from src.services.bgm_service import BgmService
         svc = BgmService(settings_with_break_bgm)
-        with patch.object(svc._effect_break, "play") as mock_play:
+        with patch.object(svc._break, "play") as mock_play:
             svc.on_phase_changed(Phase.LONG_BREAK)
             mock_play.assert_called_once()
 
@@ -103,7 +100,7 @@ class TestBgmService:
             mock_load.assert_called_once()
 
     def test_work_bgm_volume_applied(self, settings_with_work_bgm):
-        """Work BGM volume from settings is applied to the effect."""
+        """Work BGM volume from settings is applied to the audio output."""
         from src.services.bgm_service import BgmService
         svc = BgmService(settings_with_work_bgm)
-        assert abs(svc._effect_work.volume() - 0.8) < 0.01
+        assert abs(svc._work._audio.volume() - 0.8) < 0.01

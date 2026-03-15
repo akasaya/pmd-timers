@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QObject, QUrl
 
 try:
-    from PyQt6.QtMultimedia import QSoundEffect
+    from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
     _MULTIMEDIA_AVAILABLE = True
 except ImportError:
     _MULTIMEDIA_AVAILABLE = False
@@ -17,45 +17,65 @@ if TYPE_CHECKING:
 
 from src.engine.session import Phase
 
+# QMediaPlayer.Infinite = -1 (loops forever)
+_INFINITE = -1
+
+
+class _Player:
+    """Wrapper around QMediaPlayer + QAudioOutput for one BGM track."""
+
+    def __init__(self, parent: QObject) -> None:
+        if not _MULTIMEDIA_AVAILABLE:
+            self._player = None
+            self._audio = None
+            return
+        self._player = QMediaPlayer(parent)
+        self._audio = QAudioOutput(parent)
+        self._player.setAudioOutput(self._audio)
+        self._player.setLoops(_INFINITE)
+
+    def set_source(self, path: str, volume: float) -> None:
+        if self._player is None:
+            return
+        self._audio.setVolume(max(0.0, min(1.0, volume)))
+        if path and Path(path).exists():
+            self._player.setSource(QUrl.fromLocalFile(path))
+        else:
+            self._player.setSource(QUrl())
+
+    def play(self) -> None:
+        if self._player is not None and self._player.source().isValid():
+            self._player.play()
+
+    def stop(self) -> None:
+        if self._player is not None:
+            self._player.stop()
+
+    def set_volume(self, volume: float) -> None:
+        if self._audio is not None:
+            self._audio.setVolume(max(0.0, min(1.0, volume)))
+
 
 class BgmService(QObject):
     """Plays looping BGM for work and break phases.
 
-    Uses QSoundEffect with infinite loop count and per-phase volume.
+    Uses QMediaPlayer (supports WAV / MP3 / OGG / FLAC / AAC / M4A etc.)
     If QtMultimedia is unavailable, all operations are silently skipped.
     """
 
     def __init__(self, settings: "AppSettings", parent=None):
         super().__init__(parent)
         self._settings = settings
-        if _MULTIMEDIA_AVAILABLE:
-            self._effect_work = QSoundEffect(self)
-            self._effect_work.setLoopCount(-2)  # QSoundEffect::Infinite = -2
-            self._effect_break = QSoundEffect(self)
-            self._effect_break.setLoopCount(-2)  # QSoundEffect::Infinite = -2
-            self._load_sources()
-        else:
-            self._effect_work = None
-            self._effect_break = None
+        self._work = _Player(self)
+        self._break = _Player(self)
+        self._load_sources()
 
     # ── Sources ───────────────────────────────────────────────────────
 
     def _load_sources(self) -> None:
-        if not _MULTIMEDIA_AVAILABLE:
-            return
         bgm = self._settings.bgm
-        self._set_source(self._effect_work, bgm.work_bgm_path, bgm.work_bgm_volume)
-        self._set_source(self._effect_break, bgm.break_bgm_path, bgm.break_bgm_volume)
-
-    @staticmethod
-    def _set_source(effect: "QSoundEffect", path: str, volume: float) -> None:
-        if effect is None:
-            return
-        effect.setVolume(max(0.0, min(1.0, volume)))
-        if path and Path(path).exists():
-            effect.setSource(QUrl.fromLocalFile(path))
-        else:
-            effect.setSource(QUrl())  # clear source — nothing to play
+        self._work.set_source(bgm.work_bgm_path, bgm.work_bgm_volume)
+        self._break.set_source(bgm.break_bgm_path, bgm.break_bgm_volume)
 
     # ── Playback ──────────────────────────────────────────────────────
 
@@ -65,23 +85,16 @@ class BgmService(QObject):
         bgm = self._settings.bgm
         if phase == Phase.WORKING:
             if bgm.work_bgm_enabled and bgm.work_bgm_path and Path(bgm.work_bgm_path).exists():
-                self._play(self._effect_work)
+                self._work.play()
         elif phase in (Phase.SHORT_BREAK, Phase.LONG_BREAK):
             if bgm.break_bgm_enabled and bgm.break_bgm_path and Path(bgm.break_bgm_path).exists():
-                self._play(self._effect_break)
+                self._break.play()
         # PAUSED / IDLE → already stopped above
-
-    @staticmethod
-    def _play(effect) -> None:
-        if effect is not None and effect.source().isValid():
-            effect.play()
 
     def stop(self) -> None:
         """Stop all BGM immediately."""
-        if self._effect_work is not None:
-            self._effect_work.stop()
-        if self._effect_break is not None:
-            self._effect_break.stop()
+        self._work.stop()
+        self._break.stop()
 
     def reload(self) -> None:
         """Reload sources and volumes after settings change."""
