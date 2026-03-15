@@ -71,7 +71,7 @@ class SoundService(QObject):
         self._timeout = QTimer(self)
         self._timeout.setSingleShot(True)
         self._timeout.setInterval(_MAX_DURATION_MS)
-        self._timeout.timeout.connect(self._stop_sound)
+        self._timeout.timeout.connect(self._on_playback_finished)
         if self._effect is not None:
             self._effect.playingChanged.connect(self._on_playing_changed)
             self._load_sound()
@@ -126,6 +126,11 @@ class SoundService(QObject):
             except Exception:
                 pass
 
+    def _on_playback_finished(self) -> None:
+        """Called on timeout: stop sound and clean up any temp WAV file."""
+        self._stop_sound()
+        self._cleanup_temp()
+
     # ── Public API ────────────────────────────────────────────────────
 
     def play(self) -> None:
@@ -149,6 +154,9 @@ class SoundService(QObject):
             self._timeout.start()
         else:
             self._play_fallback()
+            duration_ms = self._clip_duration_ms()
+            self._timeout.setInterval(min(duration_ms, _MAX_DURATION_MS))
+            self._timeout.start()
 
     def _clip_duration_ms(self) -> int:
         """Return playback clip length in ms (capped at _MAX_DURATION_MS)."""
@@ -193,9 +201,9 @@ class SoundService(QObject):
 
     def reload(self) -> None:
         """Reload sound file after settings change."""
-        if self._effect is not None:
-            self._effect.stop()
+        self._stop_sound()
         self._timeout.stop()
+        self._cleanup_temp()
         self._load_sound()
 
     def _on_playing_changed(self, playing: bool) -> None:
