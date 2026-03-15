@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.engine.session import AppSettings
+from src.services.sound_service import SoundService
 
 _MAX_SOUND_SEC = 5.0
 
@@ -40,6 +41,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("設定")
         self.setModal(True)
         self._settings = settings
+        self._preview_svc = SoundService(settings, self)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -170,9 +172,12 @@ class SettingsDialog(QDialog):
         self._sound_warn_label.setVisible(over)
 
     def _preview_sound(self) -> None:
-        from src.services.sound_service import SoundService
-        svc = SoundService(self._settings, self)
-        svc.play()
+        # Temporarily reflect checkbox state so preview respects current UI value
+        original = self._settings.notifications.sound_enabled
+        self._settings.notifications.sound_enabled = self._notify_sound_check.isChecked()
+        self._preview_svc.reload()
+        self._preview_svc.play()
+        self._settings.notifications.sound_enabled = original
 
     def _apply(self) -> None:
         self._settings.timers.work_duration_min = self._work_spin.value()
