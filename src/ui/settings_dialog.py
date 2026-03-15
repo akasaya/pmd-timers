@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QSlider,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from src.engine.session import AppSettings
@@ -33,6 +34,10 @@ def _wav_duration(path: str) -> float | None:
             return w.getnframes() / w.getframerate()
     except Exception:
         return None
+
+
+def _ms_to_label(ms: int) -> str:
+    return f"{ms / 1000:.1f}s"
 
 
 class SettingsDialog(QDialog):
@@ -106,7 +111,7 @@ class SettingsDialog(QDialog):
         self._notify_sound_check.setChecked(self._settings.notifications.sound_enabled)
         ui_form.addRow(self._notify_sound_check)
 
-        # Custom sound file
+        # Custom sound file row
         sound_row = QHBoxLayout()
         self._sound_name_label = QLabel(self._sound_display_name())
         self._sound_name_label.setStyleSheet("font-size: 10px; color: #555;")
@@ -125,6 +130,42 @@ class SettingsDialog(QDialog):
         self._sound_warn_label.setStyleSheet("color: orange; font-size: 10px;")
         self._sound_warn_label.setVisible(self._is_sound_over_limit())
         ui_form.addRow("", self._sound_warn_label)
+
+        # Start / end position sliders
+        self._trim_widget = QWidget()
+        trim_form = QFormLayout(self._trim_widget)
+        trim_form.setContentsMargins(0, 0, 0, 0)
+
+        dur_ms = self._current_sound_duration_ms()
+
+        start_row = QHBoxLayout()
+        self._start_slider = QSlider(Qt.Orientation.Horizontal)
+        self._start_slider.setRange(0, dur_ms)
+        self._start_slider.setSingleStep(100)
+        self._start_slider.setPageStep(500)
+        self._start_slider.setValue(self._settings.notifications.sound_start_ms)
+        self._start_label = QLabel(_ms_to_label(self._settings.notifications.sound_start_ms))
+        self._start_label.setFixedWidth(38)
+        self._start_slider.valueChanged.connect(self._on_start_changed)
+        start_row.addWidget(self._start_slider, 1)
+        start_row.addWidget(self._start_label)
+        trim_form.addRow("開始位置:", start_row)
+
+        end_row = QHBoxLayout()
+        self._end_slider = QSlider(Qt.Orientation.Horizontal)
+        self._end_slider.setRange(0, dur_ms)
+        self._end_slider.setSingleStep(100)
+        self._end_slider.setPageStep(500)
+        end_val = self._settings.notifications.sound_end_ms or dur_ms
+        self._end_slider.setValue(end_val)
+        self._end_label = QLabel(_ms_to_label(end_val))
+        self._end_label.setFixedWidth(38)
+        self._end_slider.valueChanged.connect(self._on_end_changed)
+        end_row.addWidget(self._end_slider, 1)
+        end_row.addWidget(self._end_label)
+        trim_form.addRow("終了位置:", end_row)
+
+        ui_form.addRow("", self._trim_widget)
 
         self._notify_desktop_check = QCheckBox("デスクトップ通知を表示")
         self._notify_desktop_check.setChecked(
@@ -146,6 +187,15 @@ class SettingsDialog(QDialog):
         reset_btn.clicked.connect(self._reset)
         layout.addWidget(buttons)
 
+    # ── Sound helpers ──────────────────────────────────────────────────
+
+    def _current_sound_duration_ms(self) -> int:
+        path = self._settings.notifications.custom_sound_path
+        if not path or not Path(path).exists():
+            path = SoundService.default_sound_path()
+        dur = _wav_duration(path)
+        return int((dur or 5.0) * 1000)
+
     def _sound_display_name(self) -> str:
         path = self._settings.notifications.custom_sound_path
         if path and Path(path).exists():
@@ -159,6 +209,28 @@ class SettingsDialog(QDialog):
         dur = _wav_duration(path)
         return dur is not None and dur > _MAX_SOUND_SEC
 
+    def _update_trim_sliders(self) -> None:
+        """Refresh slider range after a sound file change."""
+        dur_ms = self._current_sound_duration_ms()
+        self._start_slider.setRange(0, dur_ms)
+        self._end_slider.setRange(0, dur_ms)
+        self._start_slider.setValue(0)
+        self._end_slider.setValue(dur_ms)
+        self._start_label.setText(_ms_to_label(0))
+        self._end_label.setText(_ms_to_label(dur_ms))
+
+    def _on_start_changed(self, value: int) -> None:
+        self._start_label.setText(_ms_to_label(value))
+        # Keep start < end
+        if value >= self._end_slider.value():
+            self._end_slider.setValue(min(value + 100, self._end_slider.maximum()))
+
+    def _on_end_changed(self, value: int) -> None:
+        self._end_label.setText(_ms_to_label(value))
+        # Keep end > start
+        if value <= self._start_slider.value():
+            self._start_slider.setValue(max(value - 100, 0))
+
     def _browse_sound(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self, "通知音ファイルを選択", "", "WAV files (*.wav)"
@@ -170,14 +242,25 @@ class SettingsDialog(QDialog):
         dur = _wav_duration(path)
         over = dur is not None and dur > _MAX_SOUND_SEC
         self._sound_warn_label.setVisible(over)
+        self._update_trim_sliders()
 
     def _preview_sound(self) -> None:
-        # Temporarily reflect checkbox state so preview respects current UI value
-        original = self._settings.notifications.sound_enabled
+        # Temporarily reflect current UI state so preview respects it
+        original_enabled = self._settings.notifications.sound_enabled
+        original_start = self._settings.notifications.sound_start_ms
+        original_end = self._settings.notifications.sound_end_ms
         self._settings.notifications.sound_enabled = self._notify_sound_check.isChecked()
+        self._settings.notifications.sound_start_ms = self._start_slider.value()
+        end_val = self._end_slider.value()
+        dur_ms = self._current_sound_duration_ms()
+        self._settings.notifications.sound_end_ms = 0 if end_val >= dur_ms else end_val
         self._preview_svc.reload()
         self._preview_svc.play()
-        self._settings.notifications.sound_enabled = original
+        self._settings.notifications.sound_enabled = original_enabled
+        self._settings.notifications.sound_start_ms = original_start
+        self._settings.notifications.sound_end_ms = original_end
+
+    # ── Apply / Reset ─────────────────────────────────────────────────
 
     def _apply(self) -> None:
         self._settings.timers.work_duration_min = self._work_spin.value()
@@ -192,6 +275,11 @@ class SettingsDialog(QDialog):
             self._notify_desktop_check.isChecked()
         )
         # custom_sound_path already updated in _browse_sound
+        self._settings.notifications.sound_start_ms = self._start_slider.value()
+        end_val = self._end_slider.value()
+        dur_ms = self._current_sound_duration_ms()
+        # Store 0 when end == file duration (means "end of file")
+        self._settings.notifications.sound_end_ms = 0 if end_val >= dur_ms else end_val
         self.accept()
 
     def _reset(self) -> None:
@@ -208,6 +296,7 @@ class SettingsDialog(QDialog):
         self._settings.notifications.custom_sound_path = ""
         self._sound_name_label.setText("デフォルト（notification.wav）")
         self._sound_warn_label.setVisible(False)
+        self._update_trim_sliders()
 
     def get_settings(self) -> AppSettings:
         return self._settings
