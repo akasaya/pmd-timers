@@ -56,6 +56,12 @@ class SoundService(QObject):
     def play(self) -> None:
         if not self._settings.notifications.sound_enabled:
             return
+        import sys
+        # On Windows prefer winsound (stdlib) — QSoundEffect requires
+        # multimedia backend plugins that are not reliably bundled by PyInstaller.
+        if sys.platform == "win32":
+            self._play_fallback()
+            return
         if self._effect is not None:
             self._effect.play()
             self._timeout.start()
