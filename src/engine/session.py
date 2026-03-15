@@ -112,6 +112,8 @@ class NotificationSettings:
     sound_enabled: bool = True
     desktop_notification_enabled: bool = True
     custom_sound_path: str = ""  # empty = use default bundled sound
+    sound_start_ms: int = 0   # playback start position (ms)
+    sound_end_ms: int = 0     # playback end position (ms); 0 = end of file
 
 
 @dataclass
@@ -157,6 +159,8 @@ class AppSettings:
                 "sound_enabled": self.notifications.sound_enabled,
                 "desktop_notification_enabled": self.notifications.desktop_notification_enabled,
                 "custom_sound_path": self.notifications.custom_sound_path,
+                "sound_start_ms": self.notifications.sound_start_ms,
+                "sound_end_ms": self.notifications.sound_end_ms,
             },
             "ui": {
                 "always_on_top": self.ui.always_on_top,
@@ -190,6 +194,8 @@ class AppSettings:
                 sound_enabled=n.get("sound_enabled", True),
                 desktop_notification_enabled=n.get("desktop_notification_enabled", True),
                 custom_sound_path=n.get("custom_sound_path", ""),
+                sound_start_ms=n.get("sound_start_ms", 0),
+                sound_end_ms=n.get("sound_end_ms", 0),
             ),
             ui=WidgetDisplaySettings(
                 always_on_top=u.get("always_on_top", True),
