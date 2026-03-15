@@ -19,4 +19,5 @@ jobs:
         uses: Codium-ai/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GEMINI_KEY }}
+          # PR Agent (litellm) expects this name for Gemini; set repo secret GEMINI_KEY
+          GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ secrets.GEMINI_KEY }}

@@ -1,6 +1,6 @@
 .specify
 .claude
-./pr-agent
+pr-agent/
 .env
 
 # Python
