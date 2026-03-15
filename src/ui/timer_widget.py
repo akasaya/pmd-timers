@@ -262,6 +262,15 @@ class TimerWidget(QWidget):
                 rect = screen.availableGeometry()
                 x = rect.right() - self.width() - 16
                 y = rect.top() + 16
+        else:
+            # Ensure saved position is within any connected display; reset if not
+            virtual_rect = self._virtual_screen_rect()
+            if not virtual_rect.contains(QPoint(x, y)):
+                screen = QApplication.primaryScreen()
+                if screen:
+                    rect = screen.availableGeometry()
+                    x = rect.right() - self.width() - 16
+                    y = rect.top() + 16
         self.move(x, y)
 
     def _save_position(self) -> None:
@@ -271,13 +280,20 @@ class TimerWidget(QWidget):
         if hasattr(self, "_settings_service") and self._settings_service:
             self._settings_service.save(self._settings)
 
+    def _virtual_screen_rect(self):
+        """Return the united available geometry of all connected screens."""
+        from PyQt6.QtCore import QRect
+        virtual = QRect()
+        for screen in QApplication.screens():
+            virtual = virtual.united(screen.availableGeometry())
+        return virtual
+
     def _clamp_to_screen(self, pos: QPoint) -> QPoint:
-        screen = QApplication.primaryScreen()
-        if screen is None:
+        virtual = self._virtual_screen_rect()
+        if virtual.isEmpty():
             return pos
-        rect = screen.availableGeometry()
-        x = max(rect.left(), min(pos.x(), rect.right() - self.width()))
-        y = max(rect.top(), min(pos.y(), rect.bottom() - self.height()))
+        x = max(virtual.left(), min(pos.x(), virtual.right() - self.width()))
+        y = max(virtual.top(), min(pos.y(), virtual.bottom() - self.height()))
         return QPoint(x, y)
 
     # ── Button callbacks ──────────────────────────────────────────────────
