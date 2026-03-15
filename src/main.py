@@ -11,6 +11,7 @@ from src.engine.timer_engine import TimerEngine
 from src.services.history_service import HistoryService
 from src.services.notification_service import NotificationService
 from src.services.settings_service import SettingsService
+from src.services.bgm_service import BgmService
 from src.services.sound_service import SoundService
 from src.services.dashboard_viewmodel import DashboardViewModel
 from src.ui.dashboard_window import DashboardWindow
@@ -32,6 +33,7 @@ def main() -> None:
     settings = settings_svc.load()
     history_svc = HistoryService()
     sound_svc = SoundService(settings)
+    bgm_svc = BgmService(settings, app)
     notification_svc = NotificationService(sound_service=sound_svc)
 
     # Cleanup old history files (T030)
@@ -69,6 +71,7 @@ def main() -> None:
             engine.update_settings(new_settings)
             widget.apply_settings(new_settings)
             sound_svc.reload()
+            bgm_svc.reload()
 
     def quit_app() -> None:
         settings_svc.save(settings)
@@ -81,6 +84,9 @@ def main() -> None:
     )
     engine.phase_changed.connect(
         lambda phase_val, idx: tray.update_icon_for_phase(phase_val)
+    )
+    engine.phase_changed.connect(
+        lambda phase_val, idx: bgm_svc.on_phase_changed(Phase(phase_val))
     )
     engine.daily_count_updated.connect(widget.update_daily_count)
 

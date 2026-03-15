@@ -137,11 +137,22 @@ class WidgetDisplaySettings:
 
 
 @dataclass
+class BgmSettings:
+    work_bgm_path: str = ""
+    work_bgm_enabled: bool = False
+    work_bgm_volume: float = 0.5
+    break_bgm_path: str = ""
+    break_bgm_enabled: bool = False
+    break_bgm_volume: float = 0.5
+
+
+@dataclass
 class AppSettings:
     timers: TimerSettings = field(default_factory=TimerSettings)
     behavior: BehaviorSettings = field(default_factory=BehaviorSettings)
     notifications: NotificationSettings = field(default_factory=NotificationSettings)
     ui: WidgetDisplaySettings = field(default_factory=WidgetDisplaySettings)
+    bgm: BgmSettings = field(default_factory=BgmSettings)
 
     def to_dict(self) -> dict:
         return {
@@ -162,6 +173,14 @@ class AppSettings:
                 "sound_start_ms": self.notifications.sound_start_ms,
                 "sound_end_ms": self.notifications.sound_end_ms,
             },
+            "bgm": {
+                "work_bgm_path": self.bgm.work_bgm_path,
+                "work_bgm_enabled": self.bgm.work_bgm_enabled,
+                "work_bgm_volume": self.bgm.work_bgm_volume,
+                "break_bgm_path": self.bgm.break_bgm_path,
+                "break_bgm_enabled": self.bgm.break_bgm_enabled,
+                "break_bgm_volume": self.bgm.break_bgm_volume,
+            },
             "ui": {
                 "always_on_top": self.ui.always_on_top,
                 "window_opacity": self.ui.window_opacity,
@@ -180,6 +199,7 @@ class AppSettings:
         b = data.get("behavior", {})
         n = data.get("notifications", {})
         u = data.get("ui", {})
+        g = data.get("bgm", {})
         return cls(
             timers=TimerSettings(
                 work_duration_min=t.get("work_duration_min", 25),
@@ -206,6 +226,14 @@ class AppSettings:
                 window_y=u.get("window_y"),
                 window_width=u.get("window_width", 200),
                 window_height=u.get("window_height", 80),
+            ),
+            bgm=BgmSettings(
+                work_bgm_path=g.get("work_bgm_path", ""),
+                work_bgm_enabled=g.get("work_bgm_enabled", False),
+                work_bgm_volume=g.get("work_bgm_volume", 0.5),
+                break_bgm_path=g.get("break_bgm_path", ""),
+                break_bgm_enabled=g.get("break_bgm_enabled", False),
+                break_bgm_volume=g.get("break_bgm_volume", 0.5),
             ),
         )
 
