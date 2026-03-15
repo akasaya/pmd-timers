@@ -19,7 +19,7 @@ try:
 except ImportError:
     CHARTS_AVAILABLE = False
 
-from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
 if TYPE_CHECKING:
     from src.services.dashboard_viewmodel import DailyCount
@@ -44,12 +44,22 @@ class SessionBarChart(QWidget):
             self._chart_view.setRenderHint(self._chart_view.renderHints())
             self._layout.addWidget(self._chart_view)
         else:
-            self._fallback_label = QLabel("グラフ表示には PyQt6-Qt6-Charts が必要です", self)
-            self._fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._layout.addWidget(self._fallback_label)
+            self._text_chart_container = QWidget(self)
+            self._text_chart_layout = QGridLayout(self._text_chart_container)
+            self._text_chart_layout.setContentsMargins(4, 4, 4, 4)
+            self._text_chart_layout.setSpacing(2)
+            self._layout.addWidget(self._text_chart_container)
+            # Initial empty state
+            empty = QLabel("まだ記録がありません", self._text_chart_container)
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setStyleSheet("color: gray;")
+            self._text_chart_layout.addWidget(empty, 0, 0, 1, 3)
 
     def update_data(self, daily_counts: "list[DailyCount]") -> None:
-        if not CHARTS_AVAILABLE or not daily_counts:
+        if not CHARTS_AVAILABLE:
+            self._build_text_chart(daily_counts)
+            return
+        if not daily_counts:
             return
 
         self._chart.removeAllSeries()
@@ -80,3 +90,39 @@ class SessionBarChart(QWidget):
         axis_y.setLabelFormat("%d")
         self._chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
         series.attachAxis(axis_y)
+
+    def _build_text_chart(self, daily_counts: "list[DailyCount]") -> None:
+        """Text-based bar chart for environments without PyQt6-Qt6-Charts."""
+        # Clear existing widgets
+        while self._text_chart_layout.count():
+            item = self._text_chart_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not daily_counts or all(dc.count == 0 for dc in daily_counts):
+            empty = QLabel("まだ記録がありません", self._text_chart_container)
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setStyleSheet("color: gray;")
+            self._text_chart_layout.addWidget(empty, 0, 0, 1, 3)
+            return
+
+        max_count = max(dc.count for dc in daily_counts) or 1
+        bar_max = 12  # max bar width in characters
+
+        for row, dc in enumerate(daily_counts):
+            # Date label
+            date_lbl = QLabel(dc.label, self._text_chart_container)
+            date_lbl.setStyleSheet("font-size: 10px;")
+
+            # Bar
+            bar_len = int(dc.count / max_count * bar_max)
+            bar_lbl = QLabel("█" * bar_len if bar_len > 0 else "▏", self._text_chart_container)
+            bar_lbl.setStyleSheet("color: #4CAF50; font-size: 10px; letter-spacing: 0px;")
+
+            # Count
+            count_lbl = QLabel(str(dc.count), self._text_chart_container)
+            count_lbl.setStyleSheet("font-size: 10px;")
+
+            self._text_chart_layout.addWidget(date_lbl, row, 0)
+            self._text_chart_layout.addWidget(bar_lbl, row, 1)
+            self._text_chart_layout.addWidget(count_lbl, row, 2)
