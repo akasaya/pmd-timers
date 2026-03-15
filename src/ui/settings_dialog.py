@@ -1,13 +1,18 @@
 """Settings dialog for timer and widget configuration (T024)."""
 from __future__ import annotations
 
+import wave
+from pathlib import Path
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSlider,
@@ -16,6 +21,18 @@ from PyQt6.QtWidgets import (
 )
 
 from src.engine.session import AppSettings
+from src.services.sound_service import SoundService
+
+_MAX_SOUND_SEC = 5.0
+
+
+def _wav_duration(path: str) -> float | None:
+    """Return duration in seconds for a WAV file, or None on error."""
+    try:
+        with wave.open(path) as w:
+            return w.getnframes() / w.getframerate()
+    except Exception:
+        return None
 
 
 class SettingsDialog(QDialog):
@@ -24,6 +41,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("設定")
         self.setModal(True)
         self._settings = settings
+        self._preview_svc = SoundService(settings, self)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -88,6 +106,26 @@ class SettingsDialog(QDialog):
         self._notify_sound_check.setChecked(self._settings.notifications.sound_enabled)
         ui_form.addRow(self._notify_sound_check)
 
+        # Custom sound file
+        sound_row = QHBoxLayout()
+        self._sound_name_label = QLabel(self._sound_display_name())
+        self._sound_name_label.setStyleSheet("font-size: 10px; color: #555;")
+        browse_btn = QPushButton("参照")
+        browse_btn.setFixedWidth(50)
+        browse_btn.clicked.connect(self._browse_sound)
+        preview_btn = QPushButton("▶")
+        preview_btn.setFixedWidth(30)
+        preview_btn.clicked.connect(self._preview_sound)
+        sound_row.addWidget(self._sound_name_label, 1)
+        sound_row.addWidget(browse_btn)
+        sound_row.addWidget(preview_btn)
+        ui_form.addRow("通知音ファイル:", sound_row)
+
+        self._sound_warn_label = QLabel("⚠ 5秒でカットされます")
+        self._sound_warn_label.setStyleSheet("color: orange; font-size: 10px;")
+        self._sound_warn_label.setVisible(self._is_sound_over_limit())
+        ui_form.addRow("", self._sound_warn_label)
+
         self._notify_desktop_check = QCheckBox("デスクトップ通知を表示")
         self._notify_desktop_check.setChecked(
             self._settings.notifications.desktop_notification_enabled
@@ -108,6 +146,39 @@ class SettingsDialog(QDialog):
         reset_btn.clicked.connect(self._reset)
         layout.addWidget(buttons)
 
+    def _sound_display_name(self) -> str:
+        path = self._settings.notifications.custom_sound_path
+        if path and Path(path).exists():
+            return Path(path).name
+        return "デフォルト（notification.wav）"
+
+    def _is_sound_over_limit(self) -> bool:
+        path = self._settings.notifications.custom_sound_path
+        if not path or not Path(path).exists():
+            return False
+        dur = _wav_duration(path)
+        return dur is not None and dur > _MAX_SOUND_SEC
+
+    def _browse_sound(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "通知音ファイルを選択", "", "WAV files (*.wav)"
+        )
+        if not path:
+            return
+        self._settings.notifications.custom_sound_path = path
+        self._sound_name_label.setText(Path(path).name)
+        dur = _wav_duration(path)
+        over = dur is not None and dur > _MAX_SOUND_SEC
+        self._sound_warn_label.setVisible(over)
+
+    def _preview_sound(self) -> None:
+        # Temporarily reflect checkbox state so preview respects current UI value
+        original = self._settings.notifications.sound_enabled
+        self._settings.notifications.sound_enabled = self._notify_sound_check.isChecked()
+        self._preview_svc.reload()
+        self._preview_svc.play()
+        self._settings.notifications.sound_enabled = original
+
     def _apply(self) -> None:
         self._settings.timers.work_duration_min = self._work_spin.value()
         self._settings.timers.short_break_min = self._short_spin.value()
@@ -120,6 +191,7 @@ class SettingsDialog(QDialog):
         self._settings.notifications.desktop_notification_enabled = (
             self._notify_desktop_check.isChecked()
         )
+        # custom_sound_path already updated in _browse_sound
         self.accept()
 
     def _reset(self) -> None:
@@ -133,6 +205,9 @@ class SettingsDialog(QDialog):
         self._ontop_check.setChecked(defaults.ui.always_on_top)
         self._notify_sound_check.setChecked(defaults.notifications.sound_enabled)
         self._notify_desktop_check.setChecked(defaults.notifications.desktop_notification_enabled)
+        self._settings.notifications.custom_sound_path = ""
+        self._sound_name_label.setText("デフォルト（notification.wav）")
+        self._sound_warn_label.setVisible(False)
 
     def get_settings(self) -> AppSettings:
         return self._settings

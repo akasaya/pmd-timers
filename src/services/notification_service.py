@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QSystemTrayIcon
+    from src.services.sound_service import SoundService
 
 _PHASE_MESSAGES = {
     "working_to_short_break": ("作業完了！", "5分間休憩しましょう 🎉"),
@@ -15,8 +16,13 @@ _PHASE_MESSAGES = {
 
 
 class NotificationService:
-    def __init__(self, tray_icon: "QSystemTrayIcon | None" = None):
+    def __init__(
+        self,
+        tray_icon: "QSystemTrayIcon | None" = None,
+        sound_service: "SoundService | None" = None,
+    ):
         self._tray = tray_icon
+        self._sound = sound_service
         self._plyer_available = False
         try:
             import plyer  # noqa: F401
@@ -27,6 +33,8 @@ class NotificationService:
     def notify_phase_change(self, from_phase: str, to_phase: str) -> None:
         key = f"{from_phase}_to_{to_phase}"
         title, message = _PHASE_MESSAGES.get(key, ("ポモドーロ", "フェーズが変わりました"))
+        if self._sound:
+            self._sound.play()
         self._send(title, message)
 
     def _send(self, title: str, message: str) -> None:

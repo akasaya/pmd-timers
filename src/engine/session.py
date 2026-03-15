@@ -111,6 +111,7 @@ class BehaviorSettings:
 class NotificationSettings:
     sound_enabled: bool = True
     desktop_notification_enabled: bool = True
+    custom_sound_path: str = ""  # empty = use default bundled sound
 
 
 @dataclass
@@ -155,6 +156,7 @@ class AppSettings:
             "notifications": {
                 "sound_enabled": self.notifications.sound_enabled,
                 "desktop_notification_enabled": self.notifications.desktop_notification_enabled,
+                "custom_sound_path": self.notifications.custom_sound_path,
             },
             "ui": {
                 "always_on_top": self.ui.always_on_top,
@@ -187,6 +189,7 @@ class AppSettings:
             notifications=NotificationSettings(
                 sound_enabled=n.get("sound_enabled", True),
                 desktop_notification_enabled=n.get("desktop_notification_enabled", True),
+                custom_sound_path=n.get("custom_sound_path", ""),
             ),
             ui=WidgetDisplaySettings(
                 always_on_top=u.get("always_on_top", True),
