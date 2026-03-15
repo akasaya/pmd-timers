@@ -23,6 +23,8 @@ from PyQt6.QtWidgets import (
 from src.engine.session import AppSettings, Phase
 
 
+_BG_BASE_ALPHA = 180  # Base background alpha at full opacity
+
 _PHASE_LABELS = {
     Phase.IDLE: "待機中",
     Phase.WORKING: "作業中",
@@ -173,7 +175,7 @@ class TimerWidget(QWidget):
         # Compensate background alpha for window_opacity so text stays readable.
         # setWindowOpacity multiplies all rendering, so we boost alpha inversely.
         opacity = self._settings.ui.window_opacity
-        bg_alpha = min(255, int(180 / max(opacity, 0.2)))
+        bg_alpha = min(255, round(_BG_BASE_ALPHA / max(opacity, 0.2)))
         painter.setBrush(QColor(20, 20, 20, bg_alpha))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(self.rect(), 8, 8)
