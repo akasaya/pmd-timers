@@ -15,7 +15,15 @@ except ImportError:
 if TYPE_CHECKING:
     from src.engine.session import AppSettings
 
-_DEFAULT_SOUND = Path(__file__).parent.parent.parent / "assets" / "sounds" / "notification.wav"
+def _get_base_dir() -> Path:
+    """Return base directory, supporting both source and PyInstaller bundles."""
+    import sys
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).parent.parent.parent
+
+
+_DEFAULT_SOUND = _get_base_dir() / "assets" / "sounds" / "notification.wav"
 _MAX_DURATION_MS = 5000
 
 
@@ -41,7 +49,8 @@ class SoundService(QObject):
         if path and Path(path).exists():
             source = QUrl.fromLocalFile(path)
         else:
-            source = QUrl.fromLocalFile(str(_DEFAULT_SOUND))
+            default = _get_base_dir() / "assets" / "sounds" / "notification.wav"
+            source = QUrl.fromLocalFile(str(default))
         self._effect.setSource(source)
 
     def play(self) -> None:
@@ -71,6 +80,10 @@ class SoundService(QObject):
                 subprocess.Popen(["aplay", "-q", sound_path])
         except Exception:
             pass  # Sound is non-critical; never crash
+
+    @staticmethod
+    def default_sound_path() -> str:
+        return str(_get_base_dir() / "assets" / "sounds" / "notification.wav")
 
     def reload(self) -> None:
         """Reload sound file after settings change."""
