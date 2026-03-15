@@ -168,7 +168,7 @@ sys.exit(app.exec())
 ```python
 # step3_engine.py
 import sys
-from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, Qt, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
@@ -228,7 +228,7 @@ class TimerWindow(QWidget):
 
         layout = QVBoxLayout(self)
         self._label = QLabel("00:10", self)
-        self._label.setAlignment(__import__('PyQt6.QtCore', fromlist=['Qt']).Qt.AlignmentFlag.AlignCenter)
+        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._btn = QPushButton("スタート", self)
         self._btn.clicked.connect(self._toggle)
         layout.addWidget(self._label)
@@ -577,9 +577,12 @@ def save_session(session: SessionRecord) -> None:
         "duration_sec": session.duration_sec,
     })
 
-    # 上書き保存（ensure_ascii=False で日本語もそのまま書ける）
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    # アトミック書き込み（書き込み中のクラッシュでデータが壊れないよう一時ファイル経由）
+    import tempfile, shutil
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8",
+                                     dir=path.parent, suffix=".tmp") as tmp:
+        json.dump(data, tmp, ensure_ascii=False, indent=2)
+    shutil.move(tmp.name, path)
 
     print(f"保存: {path}")
 
@@ -699,7 +702,7 @@ class DashboardWindow(QWidget):
 
         self._week_list.clear()
         week_data = self._svc.get_week_counts()
-        max_count = max(c for _, c in week_data) or 1
+        max_count = max((c for _, c in week_data), default=1)
         for label, count in week_data:
             bar = "█" * int(count / max_count * 10)
             self._week_list.addItem(f"{label:5s} {bar:<10s} {count}")
