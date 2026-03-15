@@ -70,8 +70,11 @@ class SettingsDialog(QDialog):
         self._opacity_slider.valueChanged.connect(
             lambda v: self._opacity_label.setText(f"{v}%")
         )
-        ui_form.addRow("透明度:", self._opacity_slider)
+        ui_form.addRow("不透明度（表示の濃さ）:", self._opacity_slider)
         ui_form.addRow("", self._opacity_label)
+        opacity_hint = QLabel("100%=くっきり / 20%=うっすら")
+        opacity_hint.setStyleSheet("color: gray; font-size: 10px;")
+        ui_form.addRow("", opacity_hint)
 
         self._hover_check = QCheckBox("ホバー時のみ操作ボタンを表示")
         self._hover_check.setChecked(self._settings.ui.hover_reveal_buttons)

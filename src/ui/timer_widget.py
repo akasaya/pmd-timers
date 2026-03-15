@@ -6,6 +6,7 @@ from PyQt6.QtCore import (
     QPropertyAnimation,
     Qt,
     QEasingCurve,
+    QTimer,
 )
 from PyQt6.QtGui import QColor, QFont, QPainter, QPalette
 from PyQt6.QtWidgets import (
@@ -54,6 +55,12 @@ class TimerWidget(QWidget):
         self.on_open_settings = lambda: None
         self.on_open_dashboard = lambda: None
         self.on_quit = lambda: None
+
+        # Debounce timer for leaveEvent (prevents flicker when moving over child widgets)
+        self._leave_timer = QTimer(self)
+        self._leave_timer.setSingleShot(True)
+        self._leave_timer.setInterval(150)
+        self._leave_timer.timeout.connect(self._on_leave_timeout)
 
         self._setup_window()
         self._build_ui()
@@ -127,13 +134,6 @@ class TimerWidget(QWidget):
 
         layout.addWidget(self._btn_container)
 
-        # Background style
-        self.setStyleSheet("""
-            TimerWidget {
-                background-color: rgba(30, 30, 30, 200);
-                border-radius: 8px;
-            }
-        """)
         # Enable mouse tracking for entire widget
         self.setMouseTracking(True)
 
@@ -165,10 +165,20 @@ class TimerWidget(QWidget):
     def update_daily_count(self, count: int) -> None:
         self._count_label.setText(f"今日: {count}")
 
-    # ── Hover UI (T008) ───────────────────────────────────────────────────
+    # ── Background rendering (T004) ──────────────────────────────────────
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor(20, 20, 20, 180))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(self.rect(), 8, 8)
+
+    # ── Hover UI (T008, T003) ─────────────────────────────────────────────
 
     def enterEvent(self, event) -> None:
         super().enterEvent(event)
+        self._leave_timer.stop()
         if not self._settings.ui.hover_reveal_buttons:
             return
         self._btn_container.setVisible(True)
@@ -187,6 +197,12 @@ class TimerWidget(QWidget):
         super().leaveEvent(event)
         if not self._settings.ui.hover_reveal_buttons:
             return
+        # Debounce: wait before fading out to avoid flicker on child widget boundaries
+        self._leave_timer.start()
+
+    def _on_leave_timeout(self) -> None:
+        if self.underMouse():
+            return  # mouse moved back inside — cancel fade out
         anim_dur = self._settings.ui.animation_duration_ms
         anim = QPropertyAnimation(self._opacity_effect, b"opacity", self)
         anim.setDuration(anim_dur)
