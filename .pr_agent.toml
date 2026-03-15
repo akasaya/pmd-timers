@@ -9,6 +9,8 @@ extra_instructions = "Please use Japanese."
 [pr_description]
 generate_ai_title = true
 extra_instructions = "Please use Japanese."
+# Required by pr-agent; avoids 'DynaBox' object has no attribute 'enable_large_pr_handling'
+enable_large_pr_handling = false
 
 [pr_code_suggestions]
 extra_instructions = "Please use Japanese."
