@@ -170,7 +170,11 @@ class TimerWidget(QWidget):
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(QColor(20, 20, 20, 180))
+        # Compensate background alpha for window_opacity so text stays readable.
+        # setWindowOpacity multiplies all rendering, so we boost alpha inversely.
+        opacity = self._settings.ui.window_opacity
+        bg_alpha = min(255, int(180 / max(opacity, 0.2)))
+        painter.setBrush(QColor(20, 20, 20, bg_alpha))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(self.rect(), 8, 8)
 
