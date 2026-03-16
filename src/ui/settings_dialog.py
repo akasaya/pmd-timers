@@ -174,6 +174,10 @@ class SettingsDialog(QDialog):
         )
         ui_form.addRow("", self._trim_widget)
 
+        self._auto_start_check = QCheckBox("休憩終了後に次の作業を自動スタート")
+        self._auto_start_check.setChecked(self._settings.behavior.auto_start_next_session)
+        ui_form.addRow(self._auto_start_check)
+
         self._notify_desktop_check = QCheckBox("デスクトップ通知を表示")
         self._notify_desktop_check.setChecked(
             self._settings.notifications.desktop_notification_enabled
@@ -416,6 +420,7 @@ class SettingsDialog(QDialog):
         dur_ms = self._current_sound_duration_ms()
         # Store 0 when end == file duration (means "end of file")
         self._settings.notifications.sound_end_ms = 0 if end_val >= dur_ms else end_val
+        self._settings.behavior.auto_start_next_session = self._auto_start_check.isChecked()
         # BGM settings (paths already updated in _browse_* helpers)
         self._settings.bgm.work_bgm_enabled = self._work_bgm_check.isChecked()
         self._settings.bgm.work_bgm_volume = self._work_vol_slider.value() / 100.0
@@ -448,6 +453,7 @@ class SettingsDialog(QDialog):
         self._work_vol_slider.setValue(50)
         self._break_vol_slider.setValue(50)
         self._bgm_preview.stop()
+        self._auto_start_check.setChecked(defaults.behavior.auto_start_next_session)
 
     def get_settings(self) -> AppSettings:
         return self._settings

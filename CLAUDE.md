@@ -10,6 +10,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-15
 - JSON設定ファイルに `custom_sound_path` フィールド追加 (007-sound-multimonitor)
 - Python 3.12 + PyQt6 6.7+（QtMultimedia: QSoundEffect） (008-phase-bgm)
 - JSON設定ファイル（既存 AppSettings に BgmSettings を追加） (008-phase-bgm)
+- Python 3.12 + PyQt6 6.7+（QCheckBox, QFormLayout） (009-auto-resume-work)
+- JSON設定ファイル（既存スキーマ変更なし） (009-auto-resume-work)
 
 - Python 3.12 + PyQt6 6.7+, plyer 2.1+, PyInstaller 6.x（パッケージング用） (004-desktop-pomodoro-timer)
 
@@ -29,9 +31,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.12: Follow standard conventions
 
 ## Recent Changes
+- 009-auto-resume-work: Added Python 3.12 + PyQt6 6.7+（QCheckBox, QFormLayout）
 - 008-phase-bgm: Added Python 3.12 + PyQt6 6.7+（QtMultimedia: QSoundEffect）
 - 007-sound-multimonitor: Added Python 3.12 + PyQt6 6.7+（QtMultimediaを追加使用）、plyer 2.1+
-- 006-fix-ui-bugs: Added Python 3.12 + PyQt6 6.7+, plyer 2.1+
 
 
 <!-- MANUAL ADDITIONS START -->
