@@ -35,9 +35,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.12: Follow standard conventions
 
 ## Recent Changes
+- 012-i18n-support: Added Python 3.12 + PyQt6 6.7+（QComboBox追加）
 - 011-mute-toggle: Added Python 3.12 + PyQt6 6.7+（既存 QToolButton を流用）
 - 010-i18n-support: Added Python 3.12 + PyQt6 6.7+（QComboBox追加）
-- 009-auto-resume-work: Added Python 3.12 + PyQt6 6.7+（QCheckBox, QFormLayout）
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QApplication
 
 from src.engine.session import AppSettings, Phase
 from src.engine.timer_engine import TimerEngine
+from src.services.i18n_service import init as init_i18n
 from src.services.history_service import HistoryService
 from src.services.notification_service import NotificationService
 from src.services.settings_service import SettingsService
@@ -31,6 +32,7 @@ def main() -> None:
     # Services
     settings_svc = SettingsService()
     settings = settings_svc.load()
+    init_i18n(settings.general.language)
     history_svc = HistoryService()
     sound_svc = SoundService(settings)
     bgm_svc = BgmService(settings, app)

@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -23,6 +24,7 @@ from PyQt6.QtWidgets import (
 
 from src.engine.session import AppSettings
 from src.services.bgm_service import BgmService
+from src.services.i18n_service import AUDIO_FILTER, t
 from src.services.sound_service import SoundService
 
 _MAX_SOUND_SEC = 5.0
@@ -44,7 +46,7 @@ def _ms_to_label(ms: int) -> str:
 class SettingsDialog(QDialog):
     def __init__(self, settings: AppSettings, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("設定")
+        self.setWindowTitle(t("settings.title"))
         self.setModal(True)
         self._settings = settings
         self._preview_svc = SoundService(settings, self)
@@ -55,37 +57,37 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Timer group
-        timer_group = QGroupBox("タイマー設定")
+        timer_group = QGroupBox(t("settings.group.timer"))
         timer_form = QFormLayout()
 
         self._work_spin = QSpinBox()
         self._work_spin.setRange(5, 90)
-        self._work_spin.setSuffix(" 分")
+        self._work_spin.setSuffix(t("settings.suffix.minutes"))
         self._work_spin.setValue(self._settings.timers.work_duration_min)
-        timer_form.addRow("作業時間:", self._work_spin)
+        timer_form.addRow(t("settings.label.work_duration"), self._work_spin)
 
         self._short_spin = QSpinBox()
         self._short_spin.setRange(1, 30)
-        self._short_spin.setSuffix(" 分")
+        self._short_spin.setSuffix(t("settings.suffix.minutes"))
         self._short_spin.setValue(self._settings.timers.short_break_min)
-        timer_form.addRow("短休憩:", self._short_spin)
+        timer_form.addRow(t("settings.label.short_break"), self._short_spin)
 
         self._long_spin = QSpinBox()
         self._long_spin.setRange(5, 60)
-        self._long_spin.setSuffix(" 分")
+        self._long_spin.setSuffix(t("settings.suffix.minutes"))
         self._long_spin.setValue(self._settings.timers.long_break_min)
-        timer_form.addRow("長休憩:", self._long_spin)
+        timer_form.addRow(t("settings.label.long_break"), self._long_spin)
 
         self._sessions_spin = QSpinBox()
         self._sessions_spin.setRange(2, 10)
         self._sessions_spin.setValue(self._settings.timers.sessions_before_long_break)
-        timer_form.addRow("長休憩までのセッション数:", self._sessions_spin)
+        timer_form.addRow(t("settings.label.sessions_before_long"), self._sessions_spin)
 
         timer_group.setLayout(timer_form)
         layout.addWidget(timer_group)
 
         # UI group
-        ui_group = QGroupBox("ウィジェット設定")
+        ui_group = QGroupBox(t("settings.group.widget"))
         ui_form = QFormLayout()
 
         self._opacity_label = QLabel(f"{int(self._settings.ui.window_opacity * 100)}%")
@@ -95,21 +97,21 @@ class SettingsDialog(QDialog):
         self._opacity_slider.valueChanged.connect(
             lambda v: self._opacity_label.setText(f"{v}%")
         )
-        ui_form.addRow("不透明度（表示の濃さ）:", self._opacity_slider)
+        ui_form.addRow(t("settings.label.opacity"), self._opacity_slider)
         ui_form.addRow("", self._opacity_label)
-        opacity_hint = QLabel("100%=くっきり / 20%=うっすら")
+        opacity_hint = QLabel(t("settings.label.opacity_hint"))
         opacity_hint.setStyleSheet("color: gray; font-size: 10px;")
         ui_form.addRow("", opacity_hint)
 
-        self._hover_check = QCheckBox("ホバー時のみ操作ボタンを表示")
+        self._hover_check = QCheckBox(t("settings.checkbox.hover_buttons"))
         self._hover_check.setChecked(self._settings.ui.hover_reveal_buttons)
         ui_form.addRow(self._hover_check)
 
-        self._ontop_check = QCheckBox("常に最前面に表示")
+        self._ontop_check = QCheckBox(t("settings.checkbox.always_on_top"))
         self._ontop_check.setChecked(self._settings.ui.always_on_top)
         ui_form.addRow(self._ontop_check)
 
-        self._notify_sound_check = QCheckBox("通知音を鳴らす")
+        self._notify_sound_check = QCheckBox(t("settings.checkbox.sound_enabled"))
         self._notify_sound_check.setChecked(self._settings.notifications.sound_enabled)
         ui_form.addRow(self._notify_sound_check)
 
@@ -117,7 +119,7 @@ class SettingsDialog(QDialog):
         sound_row = QHBoxLayout()
         self._sound_name_label = QLabel(self._sound_display_name())
         self._sound_name_label.setStyleSheet("font-size: 10px; color: #555;")
-        browse_btn = QPushButton("参照")
+        browse_btn = QPushButton(t("settings.button.browse"))
         browse_btn.setFixedWidth(50)
         browse_btn.clicked.connect(self._browse_sound)
         preview_btn = QPushButton("▶")
@@ -126,9 +128,9 @@ class SettingsDialog(QDialog):
         sound_row.addWidget(self._sound_name_label, 1)
         sound_row.addWidget(browse_btn)
         sound_row.addWidget(preview_btn)
-        ui_form.addRow("通知音ファイル:", sound_row)
+        ui_form.addRow(t("settings.label.sound_file"), sound_row)
 
-        self._sound_warn_label = QLabel("⚠ 5秒でカットされます")
+        self._sound_warn_label = QLabel(t("settings.label.sound_warn"))
         self._sound_warn_label.setStyleSheet("color: orange; font-size: 10px;")
         self._sound_warn_label.setVisible(self._is_sound_over_limit())
         ui_form.addRow("", self._sound_warn_label)
@@ -151,7 +153,7 @@ class SettingsDialog(QDialog):
         self._start_slider.valueChanged.connect(self._on_start_changed)
         start_row.addWidget(self._start_slider, 1)
         start_row.addWidget(self._start_label)
-        trim_form.addRow("開始位置:", start_row)
+        trim_form.addRow(t("settings.label.sound_start"), start_row)
 
         end_row = QHBoxLayout()
         self._end_slider = QSlider(Qt.Orientation.Horizontal)
@@ -165,7 +167,7 @@ class SettingsDialog(QDialog):
         self._end_slider.valueChanged.connect(self._on_end_changed)
         end_row.addWidget(self._end_slider, 1)
         end_row.addWidget(self._end_label)
-        trim_form.addRow("終了位置:", end_row)
+        trim_form.addRow(t("settings.label.sound_end"), end_row)
 
         # Trim sliders only make sense for WAV files
         _init_path = self._settings.notifications.custom_sound_path
@@ -174,11 +176,11 @@ class SettingsDialog(QDialog):
         )
         ui_form.addRow("", self._trim_widget)
 
-        self._auto_start_check = QCheckBox("休憩終了後に次の作業を自動スタート")
+        self._auto_start_check = QCheckBox(t("settings.checkbox.auto_start"))
         self._auto_start_check.setChecked(self._settings.behavior.auto_start_next_session)
         ui_form.addRow(self._auto_start_check)
 
-        self._notify_desktop_check = QCheckBox("デスクトップ通知を表示")
+        self._notify_desktop_check = QCheckBox(t("settings.checkbox.desktop_notify"))
         self._notify_desktop_check.setChecked(
             self._settings.notifications.desktop_notification_enabled
         )
@@ -188,14 +190,14 @@ class SettingsDialog(QDialog):
         layout.addWidget(ui_group)
 
         # BGM group
-        bgm_group = QGroupBox("BGM設定")
+        bgm_group = QGroupBox(t("settings.group.bgm"))
         bgm_form = QFormLayout()
 
         # Work BGM
         work_row = QHBoxLayout()
         self._work_bgm_label = QLabel(self._bgm_display_name(self._settings.bgm.work_bgm_path))
         self._work_bgm_label.setStyleSheet("font-size: 10px; color: #555;")
-        work_browse = QPushButton("参照")
+        work_browse = QPushButton(t("settings.button.browse"))
         work_browse.setFixedWidth(50)
         work_browse.clicked.connect(self._browse_work_bgm)
         work_preview = QPushButton("▶")
@@ -204,7 +206,7 @@ class SettingsDialog(QDialog):
         work_row.addWidget(self._work_bgm_label, 1)
         work_row.addWidget(work_browse)
         work_row.addWidget(work_preview)
-        bgm_form.addRow("作業中BGM:", work_row)
+        bgm_form.addRow(t("settings.label.work_bgm"), work_row)
 
         work_vol_row = QHBoxLayout()
         self._work_vol_slider = QSlider(Qt.Orientation.Horizontal)
@@ -217,9 +219,9 @@ class SettingsDialog(QDialog):
         )
         work_vol_row.addWidget(self._work_vol_slider, 1)
         work_vol_row.addWidget(self._work_vol_label)
-        bgm_form.addRow("音量:", work_vol_row)
+        bgm_form.addRow(t("settings.label.volume"), work_vol_row)
 
-        self._work_bgm_check = QCheckBox("作業中BGMを有効にする")
+        self._work_bgm_check = QCheckBox(t("settings.checkbox.work_bgm_enabled"))
         self._work_bgm_check.setChecked(self._settings.bgm.work_bgm_enabled)
         bgm_form.addRow(self._work_bgm_check)
 
@@ -227,7 +229,7 @@ class SettingsDialog(QDialog):
         break_row = QHBoxLayout()
         self._break_bgm_label = QLabel(self._bgm_display_name(self._settings.bgm.break_bgm_path))
         self._break_bgm_label.setStyleSheet("font-size: 10px; color: #555;")
-        break_browse = QPushButton("参照")
+        break_browse = QPushButton(t("settings.button.browse"))
         break_browse.setFixedWidth(50)
         break_browse.clicked.connect(self._browse_break_bgm)
         break_preview = QPushButton("▶")
@@ -236,7 +238,7 @@ class SettingsDialog(QDialog):
         break_row.addWidget(self._break_bgm_label, 1)
         break_row.addWidget(break_browse)
         break_row.addWidget(break_preview)
-        bgm_form.addRow("休憩中BGM:", break_row)
+        bgm_form.addRow(t("settings.label.break_bgm"), break_row)
 
         break_vol_row = QHBoxLayout()
         self._break_vol_slider = QSlider(Qt.Orientation.Horizontal)
@@ -249,20 +251,32 @@ class SettingsDialog(QDialog):
         )
         break_vol_row.addWidget(self._break_vol_slider, 1)
         break_vol_row.addWidget(self._break_vol_label)
-        bgm_form.addRow("音量:", break_vol_row)
+        bgm_form.addRow(t("settings.label.volume"), break_vol_row)
 
-        self._break_bgm_check = QCheckBox("休憩中BGMを有効にする")
+        self._break_bgm_check = QCheckBox(t("settings.checkbox.break_bgm_enabled"))
         self._break_bgm_check.setChecked(self._settings.bgm.break_bgm_enabled)
         bgm_form.addRow(self._break_bgm_check)
 
         bgm_group.setLayout(bgm_form)
         layout.addWidget(bgm_group)
 
+        # General group (language selector)
+        general_group = QGroupBox(t("settings.group.general"))
+        general_form = QFormLayout()
+        self._lang_combo = QComboBox()
+        self._lang_combo.addItem("日本語", "ja")
+        self._lang_combo.addItem("English", "en")
+        idx = self._lang_combo.findData(self._settings.general.language)
+        self._lang_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        general_form.addRow(t("settings.label.language"), self._lang_combo)
+        general_group.setLayout(general_form)
+        layout.addWidget(general_group)
+
         # Buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        reset_btn = QPushButton("デフォルトに戻す")
+        reset_btn = QPushButton(t("settings.button.reset"))
         buttons.addButton(reset_btn, QDialogButtonBox.ButtonRole.ResetRole)
         buttons.accepted.connect(self._apply)
         buttons.rejected.connect(self.reject)
@@ -282,7 +296,7 @@ class SettingsDialog(QDialog):
         path = self._settings.notifications.custom_sound_path
         if path and Path(path).exists():
             return Path(path).name
-        return "デフォルト（notification.wav）"
+        return t("settings.label.sound_default")
 
     def _is_sound_over_limit(self) -> bool:
         path = self._settings.notifications.custom_sound_path
@@ -315,8 +329,7 @@ class SettingsDialog(QDialog):
 
     def _browse_sound(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "通知音ファイルを選択", "",
-            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
+            self, t("settings.dialog.sound_title"), "", AUDIO_FILTER
         )
         if not path:
             return
@@ -352,12 +365,11 @@ class SettingsDialog(QDialog):
     def _bgm_display_name(path: str) -> str:
         if path and Path(path).exists():
             return Path(path).name
-        return "未設定"
+        return t("settings.label.bgm_unset")
 
     def _browse_work_bgm(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "作業中BGMファイルを選択", "",
-            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
+            self, t("settings.dialog.work_bgm_title"), "", AUDIO_FILTER
         )
         if path:
             self._settings.bgm.work_bgm_path = path
@@ -365,8 +377,7 @@ class SettingsDialog(QDialog):
 
     def _browse_break_bgm(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "休憩中BGMファイルを選択", "",
-            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
+            self, t("settings.dialog.break_bgm_title"), "", AUDIO_FILTER
         )
         if path:
             self._settings.bgm.break_bgm_path = path
@@ -426,6 +437,7 @@ class SettingsDialog(QDialog):
         self._settings.bgm.work_bgm_volume = self._work_vol_slider.value() / 100.0
         self._settings.bgm.break_bgm_enabled = self._break_bgm_check.isChecked()
         self._settings.bgm.break_bgm_volume = self._break_vol_slider.value() / 100.0
+        self._settings.general.language = self._lang_combo.currentData()
         self.accept()
 
     def _reset(self) -> None:
@@ -440,20 +452,21 @@ class SettingsDialog(QDialog):
         self._notify_sound_check.setChecked(defaults.notifications.sound_enabled)
         self._notify_desktop_check.setChecked(defaults.notifications.desktop_notification_enabled)
         self._settings.notifications.custom_sound_path = ""
-        self._sound_name_label.setText("デフォルト（notification.wav）")
+        self._sound_name_label.setText(t("settings.label.sound_default"))
         self._sound_warn_label.setVisible(False)
         self._update_trim_sliders()
         # Reset BGM
         self._settings.bgm.work_bgm_path = ""
         self._settings.bgm.break_bgm_path = ""
-        self._work_bgm_label.setText("未設定")
-        self._break_bgm_label.setText("未設定")
+        self._work_bgm_label.setText(t("settings.label.bgm_unset"))
+        self._break_bgm_label.setText(t("settings.label.bgm_unset"))
         self._work_bgm_check.setChecked(False)
         self._break_bgm_check.setChecked(False)
         self._work_vol_slider.setValue(50)
         self._break_vol_slider.setValue(50)
         self._bgm_preview.stop()
         self._auto_start_check.setChecked(defaults.behavior.auto_start_next_session)
+        self._lang_combo.setCurrentIndex(self._lang_combo.findData("ja"))
 
     def get_settings(self) -> AppSettings:
         return self._settings

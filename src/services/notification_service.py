@@ -7,11 +7,13 @@ if TYPE_CHECKING:
     from PyQt6.QtWidgets import QSystemTrayIcon
     from src.services.sound_service import SoundService
 
-_PHASE_MESSAGES = {
-    "working_to_short_break": ("作業完了！", "5分間休憩しましょう 🎉"),
-    "working_to_long_break": ("4セッション達成！", "15分間しっかり休憩を ✨"),
-    "short_break_to_working": ("休憩終了", "次のセッションを始めましょう"),
-    "long_break_to_working": ("長休憩終了", "リフレッシュできましたか？"),
+from src.services.i18n_service import t
+
+_PHASE_KEYS: dict[str, tuple[str, str]] = {
+    "working_to_short_break": ("notification.work_done.title", "notification.work_done.msg_short"),
+    "working_to_long_break": ("notification.long_milestone.title", "notification.work_done.msg_long"),
+    "short_break_to_working": ("notification.break_done.title", "notification.break_done.msg"),
+    "long_break_to_working": ("notification.long_break_done.title", "notification.long_break_done.msg"),
 }
 
 
@@ -32,7 +34,10 @@ class NotificationService:
 
     def notify_phase_change(self, from_phase: str, to_phase: str) -> None:
         key = f"{from_phase}_to_{to_phase}"
-        title, message = _PHASE_MESSAGES.get(key, ("ポモドーロ", "フェーズが変わりました"))
+        title_key, msg_key = _PHASE_KEYS.get(
+            key, ("notification.default.title", "notification.default.msg")
+        )
+        title, message = t(title_key), t(msg_key)
         if self._sound:
             self._sound.play()
         self._send(title, message)
