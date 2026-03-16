@@ -73,6 +73,13 @@ def main() -> None:
             sound_svc.reload()
             bgm_svc.reload()
 
+    def toggle_mute() -> None:
+        settings.behavior.is_muted = not settings.behavior.is_muted
+        if settings.behavior.is_muted:
+            bgm_svc.stop()
+        settings_svc.save(settings)
+        widget.update_mute_state(settings.behavior.is_muted)
+
     def quit_app() -> None:
         settings_svc.save(settings)
         app.quit()
@@ -103,6 +110,7 @@ def main() -> None:
     widget.on_pause = lambda: (engine.pause() if engine.phase != Phase.PAUSED else engine.resume())
     widget.on_reset = engine.reset
     widget.on_skip = engine.skip
+    widget.on_mute = toggle_mute
     widget.on_open_settings = open_settings
     widget.on_open_dashboard = open_dashboard
     widget.on_quit = quit_app

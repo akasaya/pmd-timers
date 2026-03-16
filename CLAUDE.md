@@ -14,6 +14,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-15
 - JSON設定ファイル（既存スキーマ変更なし） (009-auto-resume-work)
 - Python 3.12 + PyQt6 6.7+（QComboBox追加） (010-i18n-support)
 - JSON設定ファイル（`general.language` フィールド追加） (010-i18n-support)
+- Python 3.12 + PyQt6 6.7+（既存 QToolButton を流用） (011-mute-toggle)
+- JSON設定ファイル（`behavior.is_muted` フィールド追加） (011-mute-toggle)
 
 - Python 3.12 + PyQt6 6.7+, plyer 2.1+, PyInstaller 6.x（パッケージング用） (004-desktop-pomodoro-timer)
 
@@ -33,9 +35,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.12: Follow standard conventions
 
 ## Recent Changes
+- 011-mute-toggle: Added Python 3.12 + PyQt6 6.7+（既存 QToolButton を流用）
 - 010-i18n-support: Added Python 3.12 + PyQt6 6.7+（QComboBox追加）
 - 009-auto-resume-work: Added Python 3.12 + PyQt6 6.7+（QCheckBox, QFormLayout）
-- 008-phase-bgm: Added Python 3.12 + PyQt6 6.7+（QtMultimedia: QSoundEffect）
 
 
 <!-- MANUAL ADDITIONS START -->
