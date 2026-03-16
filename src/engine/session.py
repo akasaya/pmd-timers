@@ -105,6 +105,7 @@ class TimerSettings:
 @dataclass
 class BehaviorSettings:
     auto_start_next_session: bool = False
+    is_muted: bool = False
 
 
 @dataclass
@@ -165,6 +166,7 @@ class AppSettings:
             },
             "behavior": {
                 "auto_start_next_session": self.behavior.auto_start_next_session,
+                "is_muted": self.behavior.is_muted,
             },
             "notifications": {
                 "sound_enabled": self.notifications.sound_enabled,
@@ -209,6 +211,7 @@ class AppSettings:
             ),
             behavior=BehaviorSettings(
                 auto_start_next_session=b.get("auto_start_next_session", False),
+                is_muted=b.get("is_muted", False),
             ),
             notifications=NotificationSettings(
                 sound_enabled=n.get("sound_enabled", True),

@@ -54,6 +54,7 @@ class TimerWidget(QWidget):
         self.on_pause = lambda: None
         self.on_reset = lambda: None
         self.on_skip = lambda: None
+        self.on_mute = lambda: None
         self.on_open_settings = lambda: None
         self.on_open_dashboard = lambda: None
         self.on_quit = lambda: None
@@ -123,10 +124,13 @@ class TimerWidget(QWidget):
 
         self._start_btn = self._make_btn("▶", self._on_start_click)
         self._pause_btn = self._make_btn("⏸", self._on_pause_click)
+        mute_icon = "🔇" if self._settings.behavior.is_muted else "🔊"
+        self._mute_btn = self._make_btn(mute_icon, self._on_mute_click)
         self._skip_btn = self._make_btn("⏭", self._on_skip_click)
 
         btn_layout.addWidget(self._start_btn)
         btn_layout.addWidget(self._pause_btn)
+        btn_layout.addWidget(self._mute_btn)
         btn_layout.addWidget(self._skip_btn)
 
         self._opacity_effect = QGraphicsOpacityEffect(self._btn_container)
@@ -310,10 +314,17 @@ class TimerWidget(QWidget):
     def _on_skip_click(self) -> None:
         self.on_skip()
 
+    def _on_mute_click(self) -> None:
+        self.on_mute()
+
+    def update_mute_state(self, is_muted: bool) -> None:
+        self._mute_btn.setText("🔇" if is_muted else "🔊")
+
     # ── Settings ──────────────────────────────────────────────────────────
 
     def apply_settings(self, settings: AppSettings) -> None:
         self._settings = settings
+        self.update_mute_state(settings.behavior.is_muted)
         self.resize(settings.ui.window_width, settings.ui.window_height)
         self.setWindowOpacity(settings.ui.window_opacity)
         if settings.ui.always_on_top:

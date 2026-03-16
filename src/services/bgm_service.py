@@ -82,6 +82,8 @@ class BgmService(QObject):
     def on_phase_changed(self, phase: Phase) -> None:
         """Start or stop BGM according to the new phase."""
         self.stop()
+        if self._settings.behavior.is_muted:
+            return
         bgm = self._settings.bgm
         if phase == Phase.WORKING:
             if bgm.work_bgm_enabled and bgm.work_bgm_path and Path(bgm.work_bgm_path).exists():

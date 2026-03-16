@@ -154,6 +154,8 @@ class SoundService(QObject):
     def play(self) -> None:
         if not self._settings.notifications.sound_enabled:
             return
+        if self._settings.behavior.is_muted:
+            return
         import sys
         path = self._raw_sound_path()
         duration_ms = self._clip_duration_ms()
