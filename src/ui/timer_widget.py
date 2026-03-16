@@ -324,6 +324,7 @@ class TimerWidget(QWidget):
 
     def apply_settings(self, settings: AppSettings) -> None:
         self._settings = settings
+        self.update_mute_state(settings.behavior.is_muted)
         self.resize(settings.ui.window_width, settings.ui.window_height)
         self.setWindowOpacity(settings.ui.window_opacity)
         if settings.ui.always_on_top:
