@@ -10,10 +10,17 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QObject, QTimer, QUrl
 
 try:
-    from PyQt6.QtMultimedia import QSoundEffect
+    from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer, QSoundEffect
     _MULTIMEDIA_AVAILABLE = True
 except ImportError:
     _MULTIMEDIA_AVAILABLE = False
+
+_WAV_SUFFIXES = {".wav"}
+_AUDIO_SUFFIXES = {".wav", ".mp3", ".ogg", ".flac", ".aac", ".m4a", ".opus"}
+
+
+def _is_wav(path: str) -> bool:
+    return Path(path).suffix.lower() in _WAV_SUFFIXES
 
 if TYPE_CHECKING:
     from src.engine.session import AppSettings
@@ -67,6 +74,15 @@ class SoundService(QObject):
         super().__init__(parent)
         self._settings = settings
         self._effect = QSoundEffect(self) if _MULTIMEDIA_AVAILABLE else None
+        # QMediaPlayer for non-WAV formats (MP3, OGG, FLAC, AAC, ...)
+        if _MULTIMEDIA_AVAILABLE:
+            self._media_player = QMediaPlayer(self)
+            self._media_audio = QAudioOutput(self)
+            self._media_player.setAudioOutput(self._media_audio)
+            self._media_audio.setVolume(1.0)
+        else:
+            self._media_player = None
+            self._media_audio = None
         self._temp_wav: str | None = None  # temp file from last trim
         self._timeout = QTimer(self)
         self._timeout.setSingleShot(True)
@@ -118,6 +134,8 @@ class SoundService(QObject):
         """Stop playback regardless of backend."""
         if self._effect is not None:
             self._effect.stop()
+        if self._media_player is not None:
+            self._media_player.stop()
         import sys
         if sys.platform == "win32":
             try:
@@ -137,25 +155,30 @@ class SoundService(QObject):
         if not self._settings.notifications.sound_enabled:
             return
         import sys
-        # On Windows prefer winsound — QSoundEffect requires multimedia
-        # backend plugins not reliably bundled by PyInstaller.
+        path = self._raw_sound_path()
+        duration_ms = self._clip_duration_ms()
+        timeout = min(duration_ms, _MAX_DURATION_MS)
+        self._timeout.setInterval(timeout)
+
+        if not _is_wav(path):
+            # Non-WAV: use QMediaPlayer (supports MP3/OGG/FLAC/AAC etc.)
+            if self._media_player is not None:
+                self._media_player.setSource(QUrl.fromLocalFile(path))
+                self._media_player.play()
+                self._timeout.start()
+            return
+
+        # WAV path: winsound on Windows, QSoundEffect elsewhere
         if sys.platform == "win32":
             self._play_winsound()
-            duration_ms = self._clip_duration_ms()
-            self._timeout.setInterval(min(duration_ms, _MAX_DURATION_MS))
             self._timeout.start()
             return
-        # Non-Windows: reload source (handles start/end trim) then play
         self._load_sound()
         if self._effect is not None:
-            duration_ms = self._clip_duration_ms()
-            self._timeout.setInterval(min(duration_ms, _MAX_DURATION_MS))
             self._effect.play()
             self._timeout.start()
         else:
             self._play_fallback()
-            duration_ms = self._clip_duration_ms()
-            self._timeout.setInterval(min(duration_ms, _MAX_DURATION_MS))
             self._timeout.start()
 
     def _clip_duration_ms(self) -> int:

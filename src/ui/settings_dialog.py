@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.engine.session import AppSettings
+from src.services.bgm_service import BgmService
 from src.services.sound_service import SoundService
 
 _MAX_SOUND_SEC = 5.0
@@ -47,6 +48,7 @@ class SettingsDialog(QDialog):
         self.setModal(True)
         self._settings = settings
         self._preview_svc = SoundService(settings, self)
+        self._bgm_preview = BgmService(settings, self)
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -165,7 +167,16 @@ class SettingsDialog(QDialog):
         end_row.addWidget(self._end_label)
         trim_form.addRow("終了位置:", end_row)
 
+        # Trim sliders only make sense for WAV files
+        _init_path = self._settings.notifications.custom_sound_path
+        self._trim_widget.setVisible(
+            not _init_path or Path(_init_path).suffix.lower() == ".wav"
+        )
         ui_form.addRow("", self._trim_widget)
+
+        self._auto_start_check = QCheckBox("休憩終了後に次の作業を自動スタート")
+        self._auto_start_check.setChecked(self._settings.behavior.auto_start_next_session)
+        ui_form.addRow(self._auto_start_check)
 
         self._notify_desktop_check = QCheckBox("デスクトップ通知を表示")
         self._notify_desktop_check.setChecked(
@@ -175,6 +186,77 @@ class SettingsDialog(QDialog):
 
         ui_group.setLayout(ui_form)
         layout.addWidget(ui_group)
+
+        # BGM group
+        bgm_group = QGroupBox("BGM設定")
+        bgm_form = QFormLayout()
+
+        # Work BGM
+        work_row = QHBoxLayout()
+        self._work_bgm_label = QLabel(self._bgm_display_name(self._settings.bgm.work_bgm_path))
+        self._work_bgm_label.setStyleSheet("font-size: 10px; color: #555;")
+        work_browse = QPushButton("参照")
+        work_browse.setFixedWidth(50)
+        work_browse.clicked.connect(self._browse_work_bgm)
+        work_preview = QPushButton("▶")
+        work_preview.setFixedWidth(30)
+        work_preview.clicked.connect(self._preview_work_bgm)
+        work_row.addWidget(self._work_bgm_label, 1)
+        work_row.addWidget(work_browse)
+        work_row.addWidget(work_preview)
+        bgm_form.addRow("作業中BGM:", work_row)
+
+        work_vol_row = QHBoxLayout()
+        self._work_vol_slider = QSlider(Qt.Orientation.Horizontal)
+        self._work_vol_slider.setRange(0, 100)
+        self._work_vol_slider.setValue(int(self._settings.bgm.work_bgm_volume * 100))
+        self._work_vol_label = QLabel(f"{int(self._settings.bgm.work_bgm_volume * 100)}%")
+        self._work_vol_label.setFixedWidth(38)
+        self._work_vol_slider.valueChanged.connect(
+            lambda v: self._work_vol_label.setText(f"{v}%")
+        )
+        work_vol_row.addWidget(self._work_vol_slider, 1)
+        work_vol_row.addWidget(self._work_vol_label)
+        bgm_form.addRow("音量:", work_vol_row)
+
+        self._work_bgm_check = QCheckBox("作業中BGMを有効にする")
+        self._work_bgm_check.setChecked(self._settings.bgm.work_bgm_enabled)
+        bgm_form.addRow(self._work_bgm_check)
+
+        # Break BGM
+        break_row = QHBoxLayout()
+        self._break_bgm_label = QLabel(self._bgm_display_name(self._settings.bgm.break_bgm_path))
+        self._break_bgm_label.setStyleSheet("font-size: 10px; color: #555;")
+        break_browse = QPushButton("参照")
+        break_browse.setFixedWidth(50)
+        break_browse.clicked.connect(self._browse_break_bgm)
+        break_preview = QPushButton("▶")
+        break_preview.setFixedWidth(30)
+        break_preview.clicked.connect(self._preview_break_bgm)
+        break_row.addWidget(self._break_bgm_label, 1)
+        break_row.addWidget(break_browse)
+        break_row.addWidget(break_preview)
+        bgm_form.addRow("休憩中BGM:", break_row)
+
+        break_vol_row = QHBoxLayout()
+        self._break_vol_slider = QSlider(Qt.Orientation.Horizontal)
+        self._break_vol_slider.setRange(0, 100)
+        self._break_vol_slider.setValue(int(self._settings.bgm.break_bgm_volume * 100))
+        self._break_vol_label = QLabel(f"{int(self._settings.bgm.break_bgm_volume * 100)}%")
+        self._break_vol_label.setFixedWidth(38)
+        self._break_vol_slider.valueChanged.connect(
+            lambda v: self._break_vol_label.setText(f"{v}%")
+        )
+        break_vol_row.addWidget(self._break_vol_slider, 1)
+        break_vol_row.addWidget(self._break_vol_label)
+        bgm_form.addRow("音量:", break_vol_row)
+
+        self._break_bgm_check = QCheckBox("休憩中BGMを有効にする")
+        self._break_bgm_check.setChecked(self._settings.bgm.break_bgm_enabled)
+        bgm_form.addRow(self._break_bgm_check)
+
+        bgm_group.setLayout(bgm_form)
+        layout.addWidget(bgm_group)
 
         # Buttons
         buttons = QDialogButtonBox(
@@ -233,16 +315,20 @@ class SettingsDialog(QDialog):
 
     def _browse_sound(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "通知音ファイルを選択", "", "WAV files (*.wav)"
+            self, "通知音ファイルを選択", "",
+            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
         )
         if not path:
             return
         self._settings.notifications.custom_sound_path = path
         self._sound_name_label.setText(Path(path).name)
-        dur = _wav_duration(path)
+        is_wav = Path(path).suffix.lower() == ".wav"
+        dur = _wav_duration(path) if is_wav else None
         over = dur is not None and dur > _MAX_SOUND_SEC
         self._sound_warn_label.setVisible(over)
-        self._update_trim_sliders()
+        self._trim_widget.setVisible(is_wav)
+        if is_wav:
+            self._update_trim_sliders()
 
     def _preview_sound(self) -> None:
         # Temporarily reflect current UI state so preview respects it
@@ -259,6 +345,60 @@ class SettingsDialog(QDialog):
         self._settings.notifications.sound_enabled = original_enabled
         self._settings.notifications.sound_start_ms = original_start
         self._settings.notifications.sound_end_ms = original_end
+
+    # ── BGM helpers ───────────────────────────────────────────────────
+
+    @staticmethod
+    def _bgm_display_name(path: str) -> str:
+        if path and Path(path).exists():
+            return Path(path).name
+        return "未設定"
+
+    def _browse_work_bgm(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "作業中BGMファイルを選択", "",
+            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
+        )
+        if path:
+            self._settings.bgm.work_bgm_path = path
+            self._work_bgm_label.setText(Path(path).name)
+
+    def _browse_break_bgm(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "休憩中BGMファイルを選択", "",
+            "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
+        )
+        if path:
+            self._settings.bgm.break_bgm_path = path
+            self._break_bgm_label.setText(Path(path).name)
+
+    def _preview_work_bgm(self) -> None:
+        self._bgm_preview.stop()
+        orig_path = self._settings.bgm.work_bgm_path
+        orig_vol = self._settings.bgm.work_bgm_volume
+        orig_enabled = self._settings.bgm.work_bgm_enabled
+        self._settings.bgm.work_bgm_volume = self._work_vol_slider.value() / 100.0
+        self._settings.bgm.work_bgm_enabled = True
+        self._bgm_preview.reload()
+        from src.engine.session import Phase
+        self._bgm_preview.on_phase_changed(Phase.WORKING)
+        self._settings.bgm.work_bgm_path = orig_path
+        self._settings.bgm.work_bgm_volume = orig_vol
+        self._settings.bgm.work_bgm_enabled = orig_enabled
+
+    def _preview_break_bgm(self) -> None:
+        self._bgm_preview.stop()
+        orig_path = self._settings.bgm.break_bgm_path
+        orig_vol = self._settings.bgm.break_bgm_volume
+        orig_enabled = self._settings.bgm.break_bgm_enabled
+        self._settings.bgm.break_bgm_volume = self._break_vol_slider.value() / 100.0
+        self._settings.bgm.break_bgm_enabled = True
+        self._bgm_preview.reload()
+        from src.engine.session import Phase
+        self._bgm_preview.on_phase_changed(Phase.SHORT_BREAK)
+        self._settings.bgm.break_bgm_path = orig_path
+        self._settings.bgm.break_bgm_volume = orig_vol
+        self._settings.bgm.break_bgm_enabled = orig_enabled
 
     # ── Apply / Reset ─────────────────────────────────────────────────
 
@@ -280,6 +420,12 @@ class SettingsDialog(QDialog):
         dur_ms = self._current_sound_duration_ms()
         # Store 0 when end == file duration (means "end of file")
         self._settings.notifications.sound_end_ms = 0 if end_val >= dur_ms else end_val
+        self._settings.behavior.auto_start_next_session = self._auto_start_check.isChecked()
+        # BGM settings (paths already updated in _browse_* helpers)
+        self._settings.bgm.work_bgm_enabled = self._work_bgm_check.isChecked()
+        self._settings.bgm.work_bgm_volume = self._work_vol_slider.value() / 100.0
+        self._settings.bgm.break_bgm_enabled = self._break_bgm_check.isChecked()
+        self._settings.bgm.break_bgm_volume = self._break_vol_slider.value() / 100.0
         self.accept()
 
     def _reset(self) -> None:
@@ -297,6 +443,17 @@ class SettingsDialog(QDialog):
         self._sound_name_label.setText("デフォルト（notification.wav）")
         self._sound_warn_label.setVisible(False)
         self._update_trim_sliders()
+        # Reset BGM
+        self._settings.bgm.work_bgm_path = ""
+        self._settings.bgm.break_bgm_path = ""
+        self._work_bgm_label.setText("未設定")
+        self._break_bgm_label.setText("未設定")
+        self._work_bgm_check.setChecked(False)
+        self._break_bgm_check.setChecked(False)
+        self._work_vol_slider.setValue(50)
+        self._break_vol_slider.setValue(50)
+        self._bgm_preview.stop()
+        self._auto_start_check.setChecked(defaults.behavior.auto_start_next_session)
 
     def get_settings(self) -> AppSettings:
         return self._settings
