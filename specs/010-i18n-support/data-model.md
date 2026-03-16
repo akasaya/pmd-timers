@@ -68,7 +68,7 @@ STRINGS: dict[str, str] = {
     "settings.dialog.sound_title": "通知音ファイルを選択",
     "settings.dialog.work_bgm_title": "作業中BGMファイルを選択",
     "settings.dialog.break_bgm_title": "休憩中BGMファイルを選択",
-    "settings.dialog.audio_filter": "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)",
+    # audio_filter は翻訳不要 → i18n_service.AUDIO_FILTER 定数として管理（下記参照）
     "settings.suffix.minutes": " 分",
     # トレイ
     "tray.show_widget": "ウィジェットを表示",
@@ -156,7 +156,7 @@ STRINGS: dict[str, str] = {
     "settings.dialog.sound_title": "Select Notification Sound",
     "settings.dialog.work_bgm_title": "Select Work BGM",
     "settings.dialog.break_bgm_title": "Select Break BGM",
-    "settings.dialog.audio_filter": "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)",
+    # audio_filter は翻訳不要 → i18n_service.AUDIO_FILTER 定数として管理（下記参照）
     "settings.suffix.minutes": " min",
     "tray.show_widget": "Show Widget",
     "tray.dashboard": "Dashboard",

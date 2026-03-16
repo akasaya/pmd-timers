@@ -76,9 +76,18 @@ def init(language: str) -> None:
         from src.locale.ja import STRINGS
     _strings = STRINGS
 
+# ファイルフィルターは翻訳不要のため定数として一元管理
+AUDIO_FILTER = "Audio files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a *.opus);;All files (*)"
+
 def t(key: str, **kwargs) -> str:
     s = _strings.get(key, key)
-    return s.format(**kwargs) if kwargs else s
+    if not kwargs:
+        return s
+    try:
+        return s.format(**kwargs)
+    except KeyError:
+        # 引数が不足している場合はフォーマット前の文字列を返す（クラッシュ防止）
+        return s
 ```
 
 ## 設定スキーマ変更
