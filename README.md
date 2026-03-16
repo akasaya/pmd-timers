@@ -1,5 +1,7 @@
 # 🍅 pmd-timers
 
+[日本語](#-pmd-timers) | [English](#-pmd-timers-english)
+
 > ⚠️ **このアプリは生成AI（Claude）との協働で開発されています。**
 > コード・仕様書・ドキュメントの大部分はAIが生成したものです。動作確認はしていますが、利用は自己責任でお願いします。
 
@@ -173,5 +175,167 @@ src/
 | [010-i18n-support](specs/010-i18n-support/) | UI多言語対応（仕様・設計フェーズ） |
 | [011-mute-toggle](specs/011-mute-toggle/) | 通知音・BGMのワンタッチミュートトグル |
 | [012-i18n-support](specs/012-i18n-support/) | UI多言語対応 実装（日本語 / English） |
+
+---
+
+---
+
+# 🍅 pmd-timers (English)
+
+> ⚠️ **This app is developed in collaboration with AI (Claude).**
+> Most of the code, specs, and documentation are AI-generated. It has been tested, but use at your own risk.
+
+---
+
+A compact always-on-top Pomodoro timer that stays visible on your desktop.
+Includes a mini widget that stays out of your way, plus a statistics dashboard to review your work history.
+
+---
+
+## Quick Start (Windows only)
+
+**No Python knowledge needed.** Download `PomodoroTimer.exe` from [Releases](https://github.com/akasaya/pmd-timers/releases) and double-click to launch.
+
+If Windows shows a security warning on first launch, click "More info" → "Run anyway".
+Settings and work history are saved automatically to `%APPDATA%\pmd-timers\`.
+
+---
+
+## Features
+
+- **Always on top** — Timer stays visible while you work in other apps
+- **Compact design** — Tiny widget that takes less than 5% of your screen
+- **Hover UI** — Buttons appear only when you hover over the widget
+- **Draggable** — Place it anywhere; position is remembered after restart
+- **Stats dashboard** — View work records by day, week, or month
+- **Adjustable opacity** — Go semi-transparent to minimize distraction
+- **Desktop notifications** — Sound and notification when a session ends
+- **Pomodoro cycle** — Long break suggested automatically after 4 sessions
+- **Custom notification sound** — WAV/MP3/OGG/FLAC and more, with trim support
+- **Phase BGM** — Play different music during work and break phases
+- **Auto-start after break** — Automatically start the next work session when a break ends
+- **Mute toggle** — 🔊/🔇 button to instantly mute all sounds; state persists across restarts
+- **Multi-language (Japanese / English)** — Switch language in Settings; takes effect after restart
+
+---
+
+## Highlights
+
+- Widget shows buttons only on hover — just the time and phase otherwise
+- Enable auto-start and the Pomodoro cycle runs without any manual input
+- Work BGM and break BGM are configured independently
+- One-tap 🔊/🔇 mute covers both notification sounds and BGM
+- Switch language between Japanese and English in Settings (restart to apply)
+- Dashboard shows completed sessions and total work time by day/week/month
+
+---
+
+## Screenshot
+
+![Timer widget during work session](ss.png)
+
+*Small widget in the top-right corner. Red timer = working, green timer = on break.*
+
+---
+
+## Installation
+
+### Requirements
+
+- Windows 10 / 11 (primary target)
+- macOS / Linux (confirmed working)
+- Python 3.12+
+
+### Setup
+
+```bash
+git clone https://github.com/akasaya/pmd-timers.git
+cd pmd-timers
+
+# Virtual environment (recommended)
+python -m venv .venv
+.venv\Scripts\activate      # Windows
+# source .venv/bin/activate  # macOS / Linux
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run
+python src/main.py
+```
+
+---
+
+## Build exe (Windows)
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --windowed --name "PomodoroTimer" src/main.py
+# Generates dist/PomodoroTimer.exe
+```
+
+---
+
+## Usage
+
+| Action | Result |
+|--------|--------|
+| Hover over widget | Shows control buttons (start / pause / skip) |
+| Left-drag | Move widget anywhere on screen |
+| Right-click | Open stats dashboard, settings, or quit |
+
+### Default Pomodoro cycle
+
+```
+Work 25min → Short break 5min  × 4
+                               ↓
+                          Long break 15min
+```
+
+---
+
+## Settings
+
+Right-click → **Settings** to configure.
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| Work duration | 25 min | 5–90 min |
+| Short break | 5 min | 1–30 min |
+| Long break | 15 min | 5–60 min |
+| Sessions before long break | 4 | 2–10 |
+| Widget opacity | 95% | 20–100% |
+| Auto-start after break | Off | Starts next work session automatically |
+| Notification sound | Default | WAV/MP3/OGG/FLAC, with trim support |
+| Work BGM / Break BGM | Disabled | File picker, per-phase volume control |
+| Mute | Off | 🔊/🔇 instantly mutes all sounds; state saved |
+| Language | Japanese | Japanese / English; restart to apply |
+
+Data storage locations:
+
+| OS | Path |
+|----|------|
+| Windows | `%APPDATA%\pmd-timers\` |
+| macOS | `~/Library/Application Support/pmd-timers/` |
+| Linux | `~/.config/pmd-timers/` |
+
+---
+
+## Development
+
+```bash
+# Run tests
+python -m pytest tests/ -v
+
+# Directory structure
+src/
+├── engine/          # Timer engine & data classes
+├── services/        # Settings, history, notifications, stats
+└── ui/
+    ├── charts/      # Stats charts (QtCharts)
+    ├── timer_widget.py      # Main widget
+    ├── dashboard_window.py  # Statistics dashboard
+    └── settings_dialog.py   # Settings dialog
+```
 
 ---
