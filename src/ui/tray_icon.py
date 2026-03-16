@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PyQt6.QtGui import QColor, QIcon, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
+from src.services.i18n_service import t
 
 
 def _make_icon(color: str = "#E53935") -> QIcon:
@@ -19,12 +20,12 @@ class TrayIcon(QSystemTrayIcon):
 
     def _setup_menu(self) -> None:
         menu = QMenu()
-        self._show_action = menu.addAction("ウィジェットを表示")
+        self._show_action = menu.addAction(t("tray.show_widget"))
         menu.addSeparator()
-        self._dashboard_action = menu.addAction("ダッシュボード")
-        self._settings_action = menu.addAction("設定")
+        self._dashboard_action = menu.addAction(t("tray.dashboard"))
+        self._settings_action = menu.addAction(t("tray.settings"))
         menu.addSeparator()
-        self._quit_action = menu.addAction("終了")
+        self._quit_action = menu.addAction(t("tray.quit"))
         self.setContextMenu(menu)
 
     def set_callbacks(

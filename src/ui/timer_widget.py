@@ -21,16 +21,17 @@ from PyQt6.QtWidgets import (
 )
 
 from src.engine.session import AppSettings, Phase
+from src.services.i18n_service import t
 
 
 _BG_BASE_ALPHA = 180  # Base background alpha at full opacity
 
-_PHASE_LABELS = {
-    Phase.IDLE: "待機中",
-    Phase.WORKING: "作業中",
-    Phase.SHORT_BREAK: "短休憩",
-    Phase.LONG_BREAK: "長休憩",
-    Phase.PAUSED: "一時停止",
+_PHASE_KEYS = {
+    Phase.IDLE: "phase.idle",
+    Phase.WORKING: "phase.working",
+    Phase.SHORT_BREAK: "phase.short_break",
+    Phase.LONG_BREAK: "phase.long_break",
+    Phase.PAUSED: "phase.paused",
 }
 
 _PHASE_COLORS = {
@@ -88,7 +89,7 @@ class TimerWidget(QWidget):
         layout.setSpacing(2)
 
         # Phase label
-        self._phase_label = QLabel(_PHASE_LABELS[Phase.IDLE], self)
+        self._phase_label = QLabel(t("phase.idle"), self)
         self._phase_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_phase = QFont()
         font_phase.setPointSize(8)
@@ -105,7 +106,7 @@ class TimerWidget(QWidget):
         self._time_label.setStyleSheet("color: #ffffff;")
 
         # Session counter
-        self._count_label = QLabel("今日: 0", self)
+        self._count_label = QLabel(t("widget.today_count", count=0), self)
         self._count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font_small = QFont()
         font_small.setPointSize(7)
@@ -162,14 +163,14 @@ class TimerWidget(QWidget):
 
     def update_phase(self, phase: Phase) -> None:
         self._current_phase = phase
-        self._phase_label.setText(_PHASE_LABELS.get(phase, ""))
+        self._phase_label.setText(t(_PHASE_KEYS.get(phase, "phase.idle")))
         color = _PHASE_COLORS.get(phase, "#ffffff")
         self._time_label.setStyleSheet(f"color: {color};")
         self._start_btn.setVisible(phase in (Phase.IDLE, Phase.PAUSED))
         self._pause_btn.setVisible(phase in (Phase.WORKING, Phase.SHORT_BREAK, Phase.LONG_BREAK))
 
     def update_daily_count(self, count: int) -> None:
-        self._count_label.setText(f"今日: {count}")
+        self._count_label.setText(t("widget.today_count", count=count))
 
     # ── Background rendering (T004) ──────────────────────────────────────
 
@@ -247,12 +248,12 @@ class TimerWidget(QWidget):
 
     def contextMenuEvent(self, event) -> None:
         menu = QMenu(self)
-        menu.addAction("統計を見る", self.on_open_dashboard)
-        menu.addAction("設定", self.on_open_settings)
+        menu.addAction(t("widget.menu.stats"), self.on_open_dashboard)
+        menu.addAction(t("widget.menu.settings"), self.on_open_settings)
         menu.addSeparator()
-        menu.addAction("リセット", self.on_reset)
+        menu.addAction(t("widget.menu.reset"), self.on_reset)
         menu.addSeparator()
-        menu.addAction("終了", self.on_quit)
+        menu.addAction(t("widget.menu.quit"), self.on_quit)
         menu.exec(event.globalPos())
 
     # ── Position persistence (T011) ──────────────────────────────────────

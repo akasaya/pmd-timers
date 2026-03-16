@@ -138,6 +138,11 @@ class WidgetDisplaySettings:
 
 
 @dataclass
+class GeneralSettings:
+    language: str = "ja"
+
+
+@dataclass
 class BgmSettings:
     work_bgm_path: str = ""
     work_bgm_enabled: bool = False
@@ -154,6 +159,7 @@ class AppSettings:
     notifications: NotificationSettings = field(default_factory=NotificationSettings)
     ui: WidgetDisplaySettings = field(default_factory=WidgetDisplaySettings)
     bgm: BgmSettings = field(default_factory=BgmSettings)
+    general: GeneralSettings = field(default_factory=GeneralSettings)
 
     def to_dict(self) -> dict:
         return {
@@ -193,6 +199,9 @@ class AppSettings:
                 "window_width": self.ui.window_width,
                 "window_height": self.ui.window_height,
             },
+            "general": {
+                "language": self.general.language,
+            },
         }
 
     @classmethod
@@ -202,6 +211,7 @@ class AppSettings:
         n = data.get("notifications", {})
         u = data.get("ui", {})
         g = data.get("bgm", {})
+        gen = data.get("general", {})
         return cls(
             timers=TimerSettings(
                 work_duration_min=t.get("work_duration_min", 25),
@@ -237,6 +247,9 @@ class AppSettings:
                 break_bgm_path=g.get("break_bgm_path", ""),
                 break_bgm_enabled=g.get("break_bgm_enabled", False),
                 break_bgm_volume=g.get("break_bgm_volume", 0.5),
+            ),
+            general=GeneralSettings(
+                language=gen.get("language", "ja"),
             ),
         )
 

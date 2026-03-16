@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.services.dashboard_viewmodel import DashboardViewModel, Period
+from src.services.i18n_service import t
 from src.ui.charts.session_bar_chart import SessionBarChart
 
 
@@ -40,7 +41,7 @@ class _StatCard(QFrame):
 class DashboardWindow(QWidget):
     def __init__(self, viewmodel: DashboardViewModel, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("統計ダッシュボード")
+        self.setWindowTitle(t("dashboard.title"))
         self.resize(600, 500)
         self._vm = viewmodel
         self._current_period = Period.TODAY
@@ -54,9 +55,13 @@ class DashboardWindow(QWidget):
 
         # Period filter buttons
         filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("期間:"))
+        filter_layout.addWidget(QLabel(t("dashboard.period.label")))
         self._period_group = QButtonGroup(self)
-        for label, period in [("今日", Period.TODAY), ("今週", Period.THIS_WEEK), ("今月", Period.THIS_MONTH)]:
+        for label, period in [
+            (t("dashboard.period.today"), Period.TODAY),
+            (t("dashboard.period.week"), Period.THIS_WEEK),
+            (t("dashboard.period.month"), Period.THIS_MONTH),
+        ]:
             btn = QPushButton(label)
             btn.setCheckable(True)
             btn.setFixedWidth(70)
@@ -69,12 +74,12 @@ class DashboardWindow(QWidget):
         main_layout.addLayout(filter_layout)
 
         # Today's stats cards
-        today_group = QGroupBox("本日の記録")
+        today_group = QGroupBox(t("dashboard.today.title"))
         cards_layout = QGridLayout()
-        self._card_completed = _StatCard("完了セッション")
-        self._card_work_time = _StatCard("作業時間")
-        self._card_breaks = _StatCard("休憩回数")
-        self._card_streak = _StatCard("連続達成日数")
+        self._card_completed = _StatCard(t("dashboard.stat.completed"))
+        self._card_work_time = _StatCard(t("dashboard.stat.work_time"))
+        self._card_breaks = _StatCard(t("dashboard.stat.breaks"))
+        self._card_streak = _StatCard(t("dashboard.stat.streak"))
         cards_layout.addWidget(self._card_completed, 0, 0)
         cards_layout.addWidget(self._card_work_time, 0, 1)
         cards_layout.addWidget(self._card_breaks, 0, 2)
@@ -83,7 +88,7 @@ class DashboardWindow(QWidget):
         main_layout.addWidget(today_group)
 
         # Bar chart
-        chart_group = QGroupBox("セッション推移")
+        chart_group = QGroupBox(t("dashboard.chart.title"))
         chart_layout = QVBoxLayout()
         self._chart = SessionBarChart()
         self._chart.setMinimumHeight(180)
@@ -97,7 +102,7 @@ class DashboardWindow(QWidget):
         main_layout.addWidget(self._best_label)
 
         # Session detail list (shown when period == TODAY)
-        detail_group = QGroupBox("セッション詳細")
+        detail_group = QGroupBox(t("dashboard.detail.title"))
         detail_layout = QVBoxLayout()
         self._detail_list = QListWidget()
         self._detail_list.setMaximumHeight(150)
@@ -122,7 +127,7 @@ class DashboardWindow(QWidget):
         self._card_completed.set_value(str(today_stats.completed_count))
         self._card_work_time.set_value(today_stats.total_work_time_str)
         self._card_breaks.set_value(str(breaks_total))
-        self._card_streak.set_value(f"{today_stats.current_streak_days}日")
+        self._card_streak.set_value(t("dashboard.stat.streak_unit", count=today_stats.current_streak_days))
 
         # Update chart
         if period_stats.daily_counts:
@@ -131,11 +136,13 @@ class DashboardWindow(QWidget):
         # Best day info
         if period_stats.best_day_date:
             self._best_label.setText(
-                f"最多: {period_stats.best_day_date} ({period_stats.best_day_count}セッション)"
-                f"  |  期間合計: {period_stats.total_completed}セッション"
+                t("dashboard.chart.best",
+                  date=period_stats.best_day_date,
+                  count=period_stats.best_day_count,
+                  total=period_stats.total_completed)
             )
         else:
-            self._best_label.setText("まだデータがありません")
+            self._best_label.setText(t("dashboard.no_data"))
 
         # Session detail (today only)
         self._detail_group.setVisible(self._current_period == Period.TODAY)
@@ -144,9 +151,14 @@ class DashboardWindow(QWidget):
             from src.engine.session import SessionStatus, SessionType
             sessions = self._vm.get_session_detail(today_stats.date)
             if not sessions:
-                self._detail_list.addItem("セッション記録なし")
+                self._detail_list.addItem(t("dashboard.detail.no_records"))
             for s in sessions:
-                stype = "作業" if s.type == SessionType.WORK else ("短休憩" if s.type == SessionType.SHORT_BREAK else "長休憩")
+                if s.type == SessionType.WORK:
+                    stype = t("dashboard.session.work")
+                elif s.type == SessionType.SHORT_BREAK:
+                    stype = t("dashboard.session.short_break")
+                else:
+                    stype = t("dashboard.session.long_break")
                 status = "✓" if s.status == SessionStatus.COMPLETED else "✗"
                 start = s.start_time[11:16] if s.start_time else "–"
                 end = s.end_time[11:16] if s.end_time else "–"
