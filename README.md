@@ -12,11 +12,7 @@
 
 ## とりあえず使いたい人へ（Windowsのみ）
 
-**Pythonの知識は不要です。** `dist/` フォルダにある実行ファイルをダブルクリックするだけで起動します。
-
-```
-dist/PomodoroTimer.exe  ← これをダブルクリック
-```
+**Pythonの知識は不要です。** [Releases](https://github.com/akasaya/pmd-timers/releases) から `PomodoroTimer.exe` をダウンロードしてダブルクリックするだけで起動します。
 
 初回起動時にWindowsのセキュリティ警告が出る場合は「詳細情報」→「実行」を選んでください。
 設定や作業記録は `%APPDATA%\pmd-timers\` に自動保存されます。
