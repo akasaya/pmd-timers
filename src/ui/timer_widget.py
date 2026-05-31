@@ -1,6 +1,8 @@
 """Compact always-on-top timer widget with hover UI and drag support (T008-T012, T023)."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from PyQt6.QtCore import (
     QPoint,
     QPropertyAnimation,
@@ -8,7 +10,7 @@ from PyQt6.QtCore import (
     QEasingCurve,
     QTimer,
 )
-from PyQt6.QtGui import QColor, QFont, QPainter, QPalette
+from PyQt6.QtGui import QColor, QFont, QPainter
 from PyQt6.QtWidgets import (
     QApplication,
     QGraphicsOpacityEffect,
@@ -22,6 +24,9 @@ from PyQt6.QtWidgets import (
 
 from src.engine.session import AppSettings, Phase
 from src.services.i18n_service import t
+
+if TYPE_CHECKING:
+    from src.services.settings_service import SettingsService
 
 
 _BG_BASE_ALPHA = 180  # Base background alpha at full opacity
@@ -49,6 +54,9 @@ class TimerWidget(QWidget):
         self._settings = settings
         self._drag_start: QPoint | None = None
         self._current_phase = Phase.IDLE
+
+        # Injected by main for position persistence
+        self._settings_service: SettingsService | None = None
 
         # Callbacks (set by main)
         self.on_start = lambda: None
@@ -174,7 +182,7 @@ class TimerWidget(QWidget):
 
     # ── Background rendering (T004) ──────────────────────────────────────
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, _event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         # Compensate background alpha for window_opacity so text stays readable.
@@ -234,14 +242,14 @@ class TimerWidget(QWidget):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
-        if self._drag_start and event.buttons() & Qt.MouseButton.LeftButton:
+        if self._drag_start is not None and event.buttons() & Qt.MouseButton.LeftButton:
             new_pos = event.globalPosition().toPoint() - self._drag_start
             clamped = self._clamp_to_screen(new_pos)
             self.move(clamped)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self._drag_start:
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_start is not None:
             self._drag_start = None
             self._save_position()
         super().mouseReleaseEvent(event)
@@ -267,6 +275,8 @@ class TimerWidget(QWidget):
                 rect = screen.availableGeometry()
                 x = rect.right() - self.width() - 16
                 y = rect.top() + 16
+            else:
+                x, y = 0, 0
         else:
             # Ensure saved position is within any connected display; reset if not
             virtual_rect = self._virtual_screen_rect()

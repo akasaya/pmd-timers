@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QSystemTrayIcon
+    from src.engine.session import AppSettings
     from src.services.sound_service import SoundService
 
 from src.services.i18n_service import t
@@ -20,9 +21,11 @@ _PHASE_KEYS: dict[str, tuple[str, str]] = {
 class NotificationService:
     def __init__(
         self,
+        settings: "AppSettings | None" = None,
         tray_icon: "QSystemTrayIcon | None" = None,
         sound_service: "SoundService | None" = None,
     ):
+        self._settings = settings
         self._tray = tray_icon
         self._sound = sound_service
         self._plyer_available = False
@@ -43,6 +46,8 @@ class NotificationService:
         self._send(title, message)
 
     def _send(self, title: str, message: str) -> None:
+        if self._settings and not self._settings.notifications.desktop_notification_enabled:
+            return
         if self._plyer_available:
             try:
                 import plyer
