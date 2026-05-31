@@ -92,28 +92,23 @@ def main() -> None:
         settings_svc.save(settings)
         app.quit()
 
-    # Unified phase change handler: tracks prev→new for transition notifications.
-    # Sound only fires on meaningful work/break transitions, not pause/resume/reset.
-    _prev_phase = Phase.IDLE
-
+    # Reflect phase changes in the widget, tray icon and BGM (every transition,
+    # including pause/resume/reset).
     def _on_phase_changed(phase_val: str, _idx: int) -> None:
-        nonlocal _prev_phase
         new_phase = Phase(phase_val)
         widget.update_phase(new_phase)
         tray.update_icon_for_phase(phase_val)
         bgm_svc.on_phase_changed(new_phase)
-        prev = _prev_phase
-        _prev_phase = new_phase
-        if (
-            prev not in (Phase.IDLE, Phase.PAUSED)
-            and new_phase not in (Phase.IDLE, Phase.PAUSED)
-            and prev != new_phase
-        ):
-            notification_svc.notify_phase_change(prev.value, new_phase.value)
+
+    # Notification + sound fire only when a timer naturally expires (not on
+    # manual skip/pause/reset), driven by the engine's phase_completed signal.
+    def _on_phase_completed(from_phase: str, to_phase: str) -> None:
+        notification_svc.notify_phase_change(from_phase, to_phase)
 
     # Wire engine signals
     engine.tick.connect(widget.update_time)
     engine.phase_changed.connect(_on_phase_changed)
+    engine.phase_completed.connect(_on_phase_completed)
     engine.daily_count_updated.connect(widget.update_daily_count)
     engine.session_completed.connect(history_svc.record_session)
 
