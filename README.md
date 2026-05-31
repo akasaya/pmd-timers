@@ -35,7 +35,7 @@
 - **フェーズ別BGM** — 作業中と休憩中で別々の音楽を流せる（ループ再生・音量個別調整）
 - **休憩後の自動スタート** — 休憩が終わったら次の作業タイマーを自動で開始するオプション
 - **ミュートトグル** — 🔊/🔇ボタンで通知音・BGMをワンタッチでまとめてミュート、状態は再起動後も保持
-- **多言語対応（日本語 / English）** — 設定画面で言語を切り替え可能、再起動後に反映
+- **多言語対応（日本語 / English）** — 設定画面で言語を切り替え可能、即時反映
 
 ---
 
@@ -45,7 +45,7 @@
 - 休憩後の自動スタートをオンにするとサイクルが手動操作なしで回り続ける
 - 作業中と休憩中でBGMを個別に設定できる
 - 🔊/🔇ボタンで通知音・BGMをワンタッチでまとめてミュート・アンミュートできる
-- 設定で言語を日本語・英語から選べる（再起動後に反映）
+- 設定で言語を日本語・英語から選べる（即時反映）
 - 統計ダッシュボードで日・週・月の作業セッション数と累計時間を確認できる
 
 ---
@@ -129,7 +129,7 @@ pyinstaller --onefile --windowed --name "PomodoroTimer" src/main.py
 | 通知音 | デフォルト音 | WAV/MP3/OGG/FLAC など対応、再生区間トリム可 |
 | 作業中BGM / 休憩中BGM | 無効 | ファイル指定・音量個別調整・ループ再生 |
 | ミュート | オフ | 🔊/🔇ボタンで通知音・BGMをまとめて即時ミュート、状態を永続保存 |
-| 言語 | 日本語 | 日本語 / English、再起動後に反映 |
+| 言語 | 日本語 | 日本語 / English、即時反映 |
 
 設定・作業記録の保存場所:
 
@@ -215,7 +215,7 @@ Settings and work history are saved automatically to `%APPDATA%\pmd-timers\`.
 - **Phase BGM** — Play different music during work and break phases
 - **Auto-start after break** — Automatically start the next work session when a break ends
 - **Mute toggle** — 🔊/🔇 button to instantly mute all sounds; state persists across restarts
-- **Multi-language (Japanese / English)** — Switch language in Settings; takes effect after restart
+- **Multi-language (Japanese / English)** — Switch language in Settings; takes effect immediately
 
 ---
 
@@ -225,7 +225,7 @@ Settings and work history are saved automatically to `%APPDATA%\pmd-timers\`.
 - Enable auto-start and the Pomodoro cycle runs without any manual input
 - Work BGM and break BGM are configured independently
 - One-tap 🔊/🔇 mute covers both notification sounds and BGM
-- Switch language between Japanese and English in Settings (restart to apply)
+- Switch language between Japanese and English in Settings (takes effect immediately)
 - Dashboard shows completed sessions and total work time by day/week/month
 
 ---
@@ -309,7 +309,7 @@ Right-click → **Settings** to configure.
 | Notification sound | Default | WAV/MP3/OGG/FLAC, with trim support |
 | Work BGM / Break BGM | Disabled | File picker, per-phase volume control |
 | Mute | Off | 🔊/🔇 instantly mutes all sounds; state saved |
-| Language | Japanese | Japanese / English; restart to apply |
+| Language | Japanese | Japanese / English; takes effect immediately |
 
 Data storage locations:
 
