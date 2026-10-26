@@ -5,7 +5,51 @@
 > ⚠️ **このアプリは生成AI（Claude）との協働で開発されています。**
 > コード・仕様書・ドキュメントの大部分はAIが生成したものです。動作確認はしていますが、利用は自己責任でお願いします。
 
+
+## Focus デスクトップ版（2026-10-26）
+
+常時表示向けに、320×248のダークカードへ更新しました。大きな残り時間、進捗バー、
+集中／休憩の状態、セッション番号、今日の完了数を表示します。
+「固定」で最前面表示、カードのドラッグで移動、「···」で設定・統計・終了を開けます。
+Spaceキーでも開始／一時停止／再開できます。設定・履歴は既存の保存先を引き継ぎます。
+初期設定では操作ボタンを常時表示します。以前の「ホバー時のみ表示」設定は維持します。
+
+![Windowsでの表示](docs/focus-windows-preview.png)
+
+Windows配布フォルダの `FocusPomodoro.exe` で起動します。`_internal` フォルダも必要です。
+デスクトップ・スタートメニュー・ログイン時起動への登録:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install_windows.ps1 -AutoStart
+```
+
+`%LOCALAPPDATA%\Programs\FocusPomodoro\<インストール日時>` に版ごとに配置します。
+以前の実行ファイルを残し、既存のポモドーロ用スタートアップショートカットがあれば
+新しい版を指すよう更新します。変更前のリンクは配置先の `shortcut-backups` に保管し、
+`restore.txt` に元の場所を記録します。自動起動を解除するときは `Win+R` → `shell:startup` で
+該当のショートカットを削除してください。ウィンドウの「···」→「終了」でアプリを終了できます。
+
+開発時はプロジェクト専用環境から、リポジトリ直下で起動します:
+
+```bash
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements.txt pytest ruff
+.venv/bin/python -m src.main
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/ -q
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m src.main --smoke-test docs/focus-preview.png
+```
+
+Windowsのビルド環境では `pip install -r requirements.txt pyinstaller` の後、
+`python scripts/build_windows.py` を実行します。従来の配布物とは別名で生成します。
+ビルド後は `FocusPomodoro.exe --smoke-test <保存先.png>` で、実際のEXEの
+開始・停止・再開・スキップ・固定切替と画面描画を検査できます。
+スモークテストはユーザーの設定や履歴を変更せず、通知や音も発生させません。
+Qtの最前面表示仕様は[Qt公式ドキュメント](https://doc.qt.io/qtforpython-6/PySide6/QtCore/Qt.html)を参照しています。
+
+検証結果と範囲は [Focus版の検証記録](docs/focus-validation.md) を参照してください。
+
 ---
+
 
 デスクトップに常時表示されるコンパクトなポモドーロタイマーアプリです。
 作業の邪魔にならないミニウィジェットと、作業記録を振り返れる統計ダッシュボードを備えています。

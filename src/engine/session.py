@@ -121,20 +121,20 @@ class NotificationSettings:
 class WidgetDisplaySettings:
     always_on_top: bool = True
     window_opacity: float = 0.95
-    hover_reveal_buttons: bool = True
+    hover_reveal_buttons: bool = False
     animation_duration_ms: int = 150
     window_x: Optional[int] = None
     window_y: Optional[int] = None
-    window_width: int = 200
-    window_height: int = 80
+    window_width: int = 320
+    window_height: int = 248
 
     def validate(self) -> None:
         if not (0.2 <= self.window_opacity <= 1.0):
             raise ValueError("window_opacity must be 0.2–1.0")
         if not (120 <= self.window_width <= 400):
             raise ValueError("window_width must be 120–400")
-        if not (60 <= self.window_height <= 200):
-            raise ValueError("window_height must be 60–200")
+        if not (60 <= self.window_height <= 400):
+            raise ValueError("window_height must be 60–400")
 
 
 @dataclass
@@ -233,12 +233,12 @@ class AppSettings:
             ui=WidgetDisplaySettings(
                 always_on_top=u.get("always_on_top", True),
                 window_opacity=u.get("window_opacity", 0.95),
-                hover_reveal_buttons=u.get("hover_reveal_buttons", True),
+                hover_reveal_buttons=u.get("hover_reveal_buttons", False),
                 animation_duration_ms=u.get("animation_duration_ms", 150),
                 window_x=u.get("window_x"),
                 window_y=u.get("window_y"),
-                window_width=u.get("window_width", 200),
-                window_height=u.get("window_height", 80),
+                window_width=u.get("window_width", 320),
+                window_height=u.get("window_height", 248),
             ),
             bgm=BgmSettings(
                 work_bgm_path=g.get("work_bgm_path", ""),

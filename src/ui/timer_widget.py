@@ -1,22 +1,26 @@
-"""Compact always-on-top timer widget with hover UI and drag support (T008-T012, T023)."""
+"""A compact, draggable focus card for an always-visible desktop timer."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import (
-    QPoint,
-    QPropertyAnimation,
-    Qt,
-    QEasingCurve,
-    QTimer,
+from PyQt6.QtCore import QPoint, QRectF, Qt, QTimer
+from PyQt6.QtGui import (
+    QColor,
+    QFont,
+    QKeySequence,
+    QLinearGradient,
+    QPainter,
+    QPen,
+    QShortcut,
 )
-from PyQt6.QtGui import QColor, QFont, QPainter
 from PyQt6.QtWidgets import (
     QApplication,
-    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QMenu,
+    QProgressBar,
+    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -28,9 +32,6 @@ from src.services.i18n_service import t
 if TYPE_CHECKING:
     from src.services.settings_service import SettingsService
 
-
-_BG_BASE_ALPHA = 180  # Base background alpha at full opacity
-
 _PHASE_KEYS = {
     Phase.IDLE: "phase.idle",
     Phase.WORKING: "phase.working",
@@ -38,13 +39,12 @@ _PHASE_KEYS = {
     Phase.LONG_BREAK: "phase.long_break",
     Phase.PAUSED: "phase.paused",
 }
-
 _PHASE_COLORS = {
-    Phase.WORKING: "#E53935",
-    Phase.SHORT_BREAK: "#43A047",
-    Phase.LONG_BREAK: "#1E88E5",
-    Phase.IDLE: "#607D8B",
-    Phase.PAUSED: "#FFA726",
+    Phase.IDLE: "#86e1c3",
+    Phase.WORKING: "#86e1c3",
+    Phase.SHORT_BREAK: "#9bc9ff",
+    Phase.LONG_BREAK: "#c5b3ff",
+    Phase.PAUSED: "#f1c780",
 }
 
 
@@ -52,200 +52,230 @@ class TimerWidget(QWidget):
     def __init__(self, settings: AppSettings, parent=None):
         super().__init__(parent)
         self._settings = settings
+        self._settings_service: SettingsService | None = None
         self._drag_start: QPoint | None = None
         self._current_phase = Phase.IDLE
-
-        # Injected by main for position persistence
-        self._settings_service: SettingsService | None = None
-
-        # Callbacks (set by main)
-        self.on_start = lambda: None
-        self.on_pause = lambda: None
-        self.on_reset = lambda: None
-        self.on_skip = lambda: None
-        self.on_mute = lambda: None
-        self.on_open_settings = lambda: None
-        self.on_open_dashboard = lambda: None
-        self.on_quit = lambda: None
-
-        # Debounce timer for leaveEvent (prevents flicker when moving over child widgets)
+        self._session_index = 1
+        self._duration = settings.timers.work_duration_min * 60
+        self._remaining = self._duration
+        self._daily_count = 0
+        for name in (
+            "start",
+            "pause",
+            "reset",
+            "skip",
+            "mute",
+            "open_settings",
+            "open_dashboard",
+            "quit",
+        ):
+            setattr(self, f"on_{name}", lambda: None)
         self._leave_timer = QTimer(self)
         self._leave_timer.setSingleShot(True)
         self._leave_timer.setInterval(150)
         self._leave_timer.timeout.connect(self._on_leave_timeout)
-
         self._setup_window()
         self._build_ui()
+        self.apply_settings(settings)
         self._restore_position()
-        self.setWindowOpacity(self._settings.ui.window_opacity)
-
-    # ── Window setup ──────────────────────────────────────────────────────
+        self._shortcut = QShortcut(QKeySequence("Space"), self)
+        self._shortcut.activated.connect(self._toggle_timer)
 
     def _setup_window(self) -> None:
-        flags = (
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
+        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
+        if self._settings.ui.always_on_top:
+            flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
+        self.setWindowTitle("Focus · Pomodoro Timer")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(self._settings.ui.window_width, self._settings.ui.window_height)
+        self.setMinimumSize(300, 248)
+        self.setMouseTracking(True)
+        self.setStyleSheet("""
+            QLabel { color: #edf3f8; background: transparent; }
+            QToolButton { color: #a9b5c7; background: #242e3e; border: 1px solid #344055;
+                          border-radius: 9px; padding: 4px; font-size: 12px; }
+            QToolButton:hover { color: #ffffff; background: #344258; }
+            QToolButton:pressed { background: #43526a; }
+            QToolButton:checked { color: #86e1c3; background: #233d3c; border-color: #3d7164; }
+            QToolButton:disabled { color: #5f6c80; background: #202938; }
+            QToolButton:focus { border: 1px solid #86e1c3; }
+            QToolTip { color: #edf3f8; background: #243044; border: 1px solid #46546a; }
+            QMenu { color: #edf3f8; background: #1c2636; border: 1px solid #364459; padding: 6px; }
+            QMenu::item { padding: 8px 20px; border-radius: 5px; }
+            QMenu::item:selected { background: #344258; }
+        """)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(2)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(8)
+        header = QHBoxLayout()
+        self._brand = QLabel("F O C U S", self)
+        self._brand.setStyleSheet("color: #91a1b8; font-size: 11px; font-weight: 600;")
+        header.addWidget(self._brand)
+        header.addStretch()
+        self._pin_btn = self._make_btn("", self._toggle_pin)
+        self._pin_btn.setCheckable(True)
+        self._pin_btn.setFixedSize(64, 28)
+        self._menu_btn = self._make_btn("···", self._open_menu)
+        self._menu_btn.setFixedSize(30, 28)
+        header.addWidget(self._pin_btn)
+        header.addWidget(self._menu_btn)
+        layout.addLayout(header)
 
-        # Phase label
-        self._phase_label = QLabel(t("phase.idle"), self)
-        self._phase_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font_phase = QFont()
-        font_phase.setPointSize(8)
-        self._phase_label.setFont(font_phase)
-        self._phase_label.setStyleSheet("color: #aaaaaa;")
-
-        # Timer display
-        self._time_label = QLabel("25:00", self)
+        self._time_label = QLabel(self)
         self._time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font_time = QFont()
-        font_time.setPointSize(18)
-        font_time.setBold(True)
-        self._time_label.setFont(font_time)
-        self._time_label.setStyleSheet("color: #ffffff;")
-
-        # Session counter
-        self._count_label = QLabel(t("widget.today_count", count=0), self)
-        self._count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font_small = QFont()
-        font_small.setPointSize(7)
-        self._count_label.setFont(font_small)
-        self._count_label.setStyleSheet("color: #888888;")
-
-        layout.addWidget(self._phase_label)
+        font = QFont("Segoe UI", 42)
+        font.setWeight(QFont.Weight.DemiBold)
+        self._time_label.setFont(font)
+        self._time_label.setMinimumHeight(68)
         layout.addWidget(self._time_label)
-        layout.addWidget(self._count_label)
 
-        # Button container with opacity effect
+        detail = QHBoxLayout()
+        self._phase_label = QLabel(self)
+        self._cycle_label = QLabel(self)
+        self._cycle_label.setStyleSheet("color: #899ab1; font-size: 11px;")
+        detail.addWidget(self._phase_label)
+        detail.addStretch()
+        detail.addWidget(self._cycle_label)
+        layout.addLayout(detail)
+        self._progress = QProgressBar(self)
+        self._progress.setRange(0, 1000)
+        self._progress.setTextVisible(False)
+        self._progress.setFixedHeight(4)
+        layout.addWidget(self._progress)
+
+        footer = QHBoxLayout()
+        self._count_label = QLabel(self)
+        self._count_label.setStyleSheet("color: #91a1b8; font-size: 11px;")
+        self._hint = QLabel(self)
+        self._hint.setStyleSheet("color: #72839b; font-size: 10px;")
+        footer.addWidget(self._count_label)
+        footer.addStretch()
+        footer.addWidget(self._hint)
+        layout.addLayout(footer)
+        layout.addStretch()
+
         self._btn_container = QWidget(self)
-        btn_layout = QHBoxLayout(self._btn_container)
-        btn_layout.setContentsMargins(2, 0, 2, 0)
-        btn_layout.setSpacing(4)
-
-        self._start_btn = self._make_btn("▶", self._on_start_click)
-        self._pause_btn = self._make_btn("⏸", self._on_pause_click)
-        mute_icon = "🔇" if self._settings.behavior.is_muted else "🔊"
-        self._mute_btn = self._make_btn(mute_icon, self._on_mute_click)
-        self._skip_btn = self._make_btn("⏭", self._on_skip_click)
-
-        btn_layout.addWidget(self._start_btn)
-        btn_layout.addWidget(self._pause_btn)
-        btn_layout.addWidget(self._mute_btn)
-        btn_layout.addWidget(self._skip_btn)
-
-        self._opacity_effect = QGraphicsOpacityEffect(self._btn_container)
-        self._opacity_effect.setOpacity(0.0)
-        self._btn_container.setGraphicsEffect(self._opacity_effect)
-        self._btn_container.setVisible(False)
-
+        policy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        policy.setRetainSizeWhenHidden(True)
+        self._btn_container.setSizePolicy(policy)
+        buttons = QHBoxLayout(self._btn_container)
+        buttons.setContentsMargins(0, 0, 0, 0)
+        buttons.setSpacing(8)
+        self._start_btn = self._make_btn("", self._on_start_click)
+        self._pause_btn = self._make_btn("", lambda: self.on_pause())
+        for button in (self._start_btn, self._pause_btn):
+            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            button.setStyleSheet("""
+                QToolButton { background: #86e1c3; color: #102b27; border: none;
+                              font-weight: 600; border-radius: 9px; }
+                QToolButton:hover { background: #a8eed7; }
+                QToolButton:pressed { background: #66c7a9; }
+                QToolButton:focus { border: 2px solid #edf3f8; }
+            """)
+            buttons.addWidget(button, 1)
+        self._mute_btn = self._make_btn("", lambda: self.on_mute())
+        self._skip_btn = self._make_btn("", lambda: self.on_skip())
+        self._skip_btn.setFixedWidth(56)
+        self._mute_btn.setFixedWidth(50)
+        buttons.addWidget(self._mute_btn)
+        buttons.addWidget(self._skip_btn)
         layout.addWidget(self._btn_container)
 
-        # Enable mouse tracking for entire widget
-        self.setMouseTracking(True)
-
     def _make_btn(self, text: str, slot) -> QToolButton:
-        btn = QToolButton(self)
-        btn.setText(text)
-        btn.setFixedSize(28, 22)
-        btn.setStyleSheet(
-            "QToolButton { background: rgba(255,255,255,40); border-radius:4px; color:white; }"
-            "QToolButton:hover { background: rgba(255,255,255,80); }"
-        )
-        btn.clicked.connect(slot)
-        return btn
-
-    # ── Public update slots ───────────────────────────────────────────────
+        button = QToolButton(self)
+        button.setText(text)
+        button.setFixedHeight(34)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.clicked.connect(slot)
+        return button
 
     def update_time(self, remaining_sec: int) -> None:
-        m, s = divmod(remaining_sec, 60)
-        self._time_label.setText(f"{m:02d}:{s:02d}")
+        self._remaining = max(0, remaining_sec)
+        minutes, seconds = divmod(self._remaining, 60)
+        self._time_label.setText(f"{minutes:02d}:{seconds:02d}")
+        self._progress.setValue(
+            round(1000 * max(0, min(1, 1 - self._remaining / max(1, self._duration))))
+        )
+        self.setWindowTitle(f"{minutes:02d}:{seconds:02d} · Focus")
 
     def update_phase(self, phase: Phase) -> None:
+        previous = self._current_phase
         self._current_phase = phase
-        self._phase_label.setText(t(_PHASE_KEYS.get(phase, "phase.idle")))
-        color = _PHASE_COLORS.get(phase, "#ffffff")
-        self._time_label.setStyleSheet(f"color: {color};")
-        self._start_btn.setVisible(phase in (Phase.IDLE, Phase.PAUSED))
-        self._pause_btn.setVisible(phase in (Phase.WORKING, Phase.SHORT_BREAK, Phase.LONG_BREAK))
+        if phase == Phase.IDLE or (phase != Phase.PAUSED and previous != Phase.PAUSED):
+            timers = self._settings.timers
+            self._duration = {
+                Phase.SHORT_BREAK: timers.short_break_min * 60,
+                Phase.LONG_BREAK: timers.long_break_min * 60,
+            }.get(phase, timers.work_duration_min * 60)
+        color = _PHASE_COLORS[phase]
+        self._phase_label.setText("●  " + t(_PHASE_KEYS[phase]))
+        self._phase_label.setStyleSheet(f"color: {color}; font-size: 12px;")
+        self._progress.setStyleSheet(
+            "QProgressBar { background: #2d3849; border: none; border-radius: 2px; }"
+            f"QProgressBar::chunk {{ background: {color}; border-radius: 2px; }}"
+        )
+        self._start_btn.setText(
+            t("widget.resume") if phase == Phase.PAUSED else t("widget.start")
+        )
+        running = phase in (Phase.WORKING, Phase.SHORT_BREAK, Phase.LONG_BREAK)
+        self._start_btn.setVisible(not running)
+        self._pause_btn.setVisible(running)
+        self._skip_btn.setEnabled(running)
+        self.update_time(self._remaining)
+
+    def update_session_index(self, index: int) -> None:
+        self._session_index = index
+        self._cycle_label.setText(
+            f"{index:02d} / {self._settings.timers.sessions_before_long_break:02d}"
+        )
 
     def update_daily_count(self, count: int) -> None:
+        self._daily_count = count
         self._count_label.setText(t("widget.today_count", count=count))
-
-    # ── Background rendering (T004) ──────────────────────────────────────
 
     def paintEvent(self, _event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Compensate background alpha for window_opacity so text stays readable.
-        # setWindowOpacity multiplies all rendering, so we boost alpha inversely.
-        opacity = self._settings.ui.window_opacity
-        bg_alpha = min(255, round(_BG_BASE_ALPHA / max(opacity, 0.2)))
-        painter.setBrush(QColor(20, 20, 20, bg_alpha))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(self.rect(), 8, 8)
-
-    # ── Hover UI (T008, T003) ─────────────────────────────────────────────
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        gradient.setColorAt(0, QColor("#202d3c"))
+        gradient.setColorAt(1, QColor("#141c2a"))
+        painter.setBrush(gradient)
+        painter.setPen(QPen(QColor("#39485c"), 1))
+        painter.drawRoundedRect(
+            QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 18, 18
+        )
 
     def enterEvent(self, event) -> None:
         super().enterEvent(event)
         self._leave_timer.stop()
-        if not self._settings.ui.hover_reveal_buttons:
-            return
-        self._btn_container.setVisible(True)
-        anim_dur = self._settings.ui.animation_duration_ms
-        anim = QPropertyAnimation(self._opacity_effect, b"opacity", self)
-        anim.setDuration(anim_dur)
-        anim.setStartValue(self._opacity_effect.opacity())
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        anim.start()
-        self._fade_in_anim = anim  # keep reference
-        # Also restore full opacity on hover (T023)
+        self._btn_container.show()
         self.setWindowOpacity(1.0)
 
     def leaveEvent(self, event) -> None:
         super().leaveEvent(event)
-        if not self._settings.ui.hover_reveal_buttons:
-            return
-        # Debounce: wait before fading out to avoid flicker on child widget boundaries
         self._leave_timer.start()
 
     def _on_leave_timeout(self) -> None:
-        if self.underMouse():
-            return  # mouse moved back inside — cancel fade out
-        anim_dur = self._settings.ui.animation_duration_ms
-        anim = QPropertyAnimation(self._opacity_effect, b"opacity", self)
-        anim.setDuration(anim_dur)
-        anim.setStartValue(self._opacity_effect.opacity())
-        anim.setEndValue(0.0)
-        anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        anim.finished.connect(lambda: self._btn_container.setVisible(False))
-        anim.start()
-        self._fade_out_anim = anim  # keep reference
-        # Restore configured opacity (T023)
-        self.setWindowOpacity(self._settings.ui.window_opacity)
-
-    # ── Drag move (T010) ──────────────────────────────────────────────────
+        if not self.underMouse():
+            self._btn_container.setVisible(not self._settings.ui.hover_reveal_buttons)
+            self.setWindowOpacity(self._settings.ui.window_opacity)
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_start = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            self._drag_start = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
         if self._drag_start is not None and event.buttons() & Qt.MouseButton.LeftButton:
-            new_pos = event.globalPosition().toPoint() - self._drag_start
-            clamped = self._clamp_to_screen(new_pos)
-            self.move(clamped)
+            self.move(
+                self._clamp_to_screen(
+                    event.globalPosition().toPoint() - self._drag_start
+                )
+            )
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
@@ -254,7 +284,7 @@ class TimerWidget(QWidget):
             self._save_position()
         super().mouseReleaseEvent(event)
 
-    def contextMenuEvent(self, event) -> None:
+    def _menu(self) -> QMenu:
         menu = QMenu(self)
         menu.addAction(t("widget.menu.stats"), self.on_open_dashboard)
         menu.addAction(t("widget.menu.settings"), self.on_open_settings)
@@ -262,84 +292,102 @@ class TimerWidget(QWidget):
         menu.addAction(t("widget.menu.reset"), self.on_reset)
         menu.addSeparator()
         menu.addAction(t("widget.menu.quit"), self.on_quit)
-        menu.exec(event.globalPos())
+        return menu
 
-    # ── Position persistence (T011) ──────────────────────────────────────
+    def _open_menu(self) -> None:
+        menu = self._menu()
+        menu.exec(self._menu_btn.mapToGlobal(self._menu_btn.rect().bottomLeft()))
+        menu.deleteLater()
+
+    def contextMenuEvent(self, event) -> None:
+        menu = self._menu()
+        menu.exec(event.globalPos())
+        menu.deleteLater()
 
     def _restore_position(self) -> None:
-        x = self._settings.ui.window_x
-        y = self._settings.ui.window_y
+        x, y = self._settings.ui.window_x, self._settings.ui.window_y
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
         if x is None or y is None:
-            screen = QApplication.primaryScreen()
-            if screen:
-                rect = screen.availableGeometry()
-                x = rect.right() - self.width() - 16
-                y = rect.top() + 16
-            else:
-                x, y = 0, 0
+            rect = screen.availableGeometry()
+            pos = QPoint(rect.right() - self.width() - 24, rect.top() + 64)
         else:
-            # Ensure saved position is within any connected display; reset if not
-            virtual_rect = self._virtual_screen_rect()
-            if not virtual_rect.contains(QPoint(x, y)):
-                screen = QApplication.primaryScreen()
-                if screen:
-                    rect = screen.availableGeometry()
-                    x = rect.right() - self.width() - 16
-                    y = rect.top() + 16
-        self.move(x, y)
-
-    def _save_position(self) -> None:
-        self._settings.ui.window_x = self.x()
-        self._settings.ui.window_y = self.y()
-        # Persist immediately (caller passes settings_service if needed)
-        if hasattr(self, "_settings_service") and self._settings_service:
-            self._settings_service.save(self._settings)
-
-    def _virtual_screen_rect(self):
-        """Return the united available geometry of all connected screens."""
-        from PyQt6.QtCore import QRect
-        virtual = QRect()
-        for screen in QApplication.screens():
-            virtual = virtual.united(screen.availableGeometry())
-        return virtual
+            pos = QPoint(x, y)
+        self.move(self._clamp_to_screen(pos))
 
     def _clamp_to_screen(self, pos: QPoint) -> QPoint:
-        virtual = self._virtual_screen_rect()
-        if virtual.isEmpty():
+        screens = QApplication.screens()
+        if not screens:
             return pos
-        x = max(virtual.left(), min(pos.x(), virtual.right() - self.width()))
-        y = max(virtual.top(), min(pos.y(), virtual.bottom() - self.height()))
-        return QPoint(x, y)
+        screen = QApplication.screenAt(pos)
+        if screen is None:
+            screen = min(
+                screens,
+                key=lambda s: (s.availableGeometry().center() - pos).manhattanLength(),
+            )
+        rect = screen.availableGeometry()
+        return QPoint(
+            max(rect.left(), min(pos.x(), rect.right() + 1 - self.width())),
+            max(rect.top(), min(pos.y(), rect.bottom() + 1 - self.height())),
+        )
 
-    # ── Button callbacks ──────────────────────────────────────────────────
+    def _save_position(self) -> None:
+        self._settings.ui.window_x, self._settings.ui.window_y = self.x(), self.y()
+        if self._settings_service:
+            self._settings_service.save(self._settings)
+
+    def _toggle_pin(self) -> None:
+        self._settings.ui.always_on_top = self._pin_btn.isChecked()
+        self.setWindowFlag(
+            Qt.WindowType.WindowStaysOnTopHint, self._settings.ui.always_on_top
+        )
+        self.show()
+        self._save_position()
+
+    def _toggle_timer(self) -> None:
+        if self._current_phase in (Phase.IDLE, Phase.PAUSED):
+            self._on_start_click()
+        else:
+            self.on_pause()
 
     def _on_start_click(self) -> None:
         if self._current_phase == Phase.PAUSED:
-            self.on_pause()  # resume handled by engine
+            self.on_pause()
         else:
             self.on_start()
 
-    def _on_pause_click(self) -> None:
-        self.on_pause()
-
-    def _on_skip_click(self) -> None:
-        self.on_skip()
-
-    def _on_mute_click(self) -> None:
-        self.on_mute()
-
     def update_mute_state(self, is_muted: bool) -> None:
-        self._mute_btn.setText("🔇" if is_muted else "🔊")
-
-    # ── Settings ──────────────────────────────────────────────────────────
+        self._mute_btn.setText(t("widget.muted") if is_muted else t("widget.sound"))
+        self._mute_btn.setToolTip(t("widget.mute_hint"))
+        self._mute_btn.setAccessibleName(t("widget.mute_hint"))
 
     def apply_settings(self, settings: AppSettings) -> None:
+        was_visible = self.isVisible()
         self._settings = settings
-        self.update_mute_state(settings.behavior.is_muted)
-        self.resize(settings.ui.window_width, settings.ui.window_height)
+        self.resize(
+            max(300, settings.ui.window_width), max(248, settings.ui.window_height)
+        )
+        self._pause_btn.setText(t("widget.pause"))
+        self._skip_btn.setText(t("widget.skip"))
+        self._pin_btn.setText(t("widget.pin"))
+        self._pin_btn.setToolTip(t("settings.checkbox.always_on_top"))
+        self._pin_btn.setChecked(settings.ui.always_on_top)
+        self._menu_btn.setToolTip(t("widget.menu.settings"))
+        self._menu_btn.setAccessibleName(t("widget.menu.settings"))
+        self._hint.setText(t("widget.drag_hint"))
+        self._btn_container.setVisible(
+            not settings.ui.hover_reveal_buttons or self.underMouse()
+        )
         self.setWindowOpacity(settings.ui.window_opacity)
-        if settings.ui.always_on_top:
-            self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
-        else:
-            self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, False)
-        self.show()
+        self.setWindowFlag(
+            Qt.WindowType.WindowStaysOnTopHint, settings.ui.always_on_top
+        )
+        self.update_mute_state(settings.behavior.is_muted)
+        self.update_phase(self._current_phase)
+        self.update_session_index(self._session_index)
+        self.update_daily_count(self._daily_count)
+        if self._current_phase == Phase.IDLE:
+            self.update_time(settings.timers.work_duration_min * 60)
+        if was_visible:
+            self.show()
