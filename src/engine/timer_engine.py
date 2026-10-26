@@ -19,6 +19,7 @@ class TimerEngine(QObject):
     # Signals
     tick = pyqtSignal(int)                  # remaining_sec
     phase_changed = pyqtSignal(str, int)    # phase.value, session_index
+    phase_completed = pyqtSignal(str, str)  # from_phase.value, to_phase.value
     session_completed = pyqtSignal(object)  # TimerSession
     daily_count_updated = pyqtSignal(int)   # completed_count
 
@@ -71,7 +72,7 @@ class TimerEngine(QObject):
             self._qt_timer.stop()
             if self._current_session:
                 self._finalize_session(SessionStatus.SKIPPED)
-            self._advance_phase()
+            self._advance_phase(natural=False)
 
     def update_settings(self, settings: AppSettings) -> None:
         self._settings = settings
@@ -103,19 +104,25 @@ class TimerEngine(QObject):
     def _on_phase_complete(self) -> None:
         if self._current_session:
             self._finalize_session(SessionStatus.COMPLETED)
-        self._advance_phase()
+        self._advance_phase(natural=True)
 
-    def _advance_phase(self) -> None:
+    def _advance_phase(self, natural: bool = False) -> None:
         s = self._settings.timers
-        if self._state.phase == Phase.WORKING:
+        from_phase = self._state.phase
+        if from_phase == Phase.WORKING:
             self._state.daily_completed_count += 1
             self.daily_count_updated.emit(self._state.daily_completed_count)
             if self._state.current_session_index >= s.sessions_before_long_break:
+                to_phase = Phase.LONG_BREAK
                 self._begin_long_break()
             else:
+                to_phase = Phase.SHORT_BREAK
                 self._begin_short_break()
-        elif self._state.phase in (Phase.SHORT_BREAK, Phase.LONG_BREAK):
-            if self._state.phase == Phase.LONG_BREAK:
+        elif from_phase in (Phase.SHORT_BREAK, Phase.LONG_BREAK):
+            # After any break the user is always headed back to work, even when
+            # auto-start is off and we idle first — the completion sound reflects that.
+            to_phase = Phase.WORKING
+            if from_phase == Phase.LONG_BREAK:
                 self._state.current_session_index = 1
                 self._cycle_number += 1
             else:
@@ -127,6 +134,10 @@ class TimerEngine(QObject):
                 self._state.remaining_sec = s.work_duration_min * 60
                 self.phase_changed.emit(Phase.IDLE.value, self._state.current_session_index)
                 self.tick.emit(self._state.remaining_sec)
+        else:
+            return
+        if natural:
+            self.phase_completed.emit(from_phase.value, to_phase.value)
 
     def _begin_work_session(self) -> None:
         sec = self._settings.timers.work_duration_min * 60

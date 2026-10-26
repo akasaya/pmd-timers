@@ -1,24 +1,26 @@
 """Application entry point."""
+
 from __future__ import annotations
 
 import sys
+from datetime import date
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 from src.engine.session import Phase
 from src.engine.timer_engine import TimerEngine
-from src.services.i18n_service import init as init_i18n
+from src.services.bgm_service import BgmService
+from src.services.dashboard_viewmodel import DashboardViewModel
 from src.services.history_service import HistoryService
+from src.services.i18n_service import init as init_i18n
 from src.services.notification_service import NotificationService
 from src.services.settings_service import SettingsService
-from src.services.bgm_service import BgmService
 from src.services.sound_service import SoundService
-from src.services.dashboard_viewmodel import DashboardViewModel
 from src.ui.dashboard_window import DashboardWindow
 from src.ui.settings_dialog import SettingsDialog
 from src.ui.timer_widget import TimerWidget
-from src.ui.tray_icon import TrayIcon
+from src.ui.tray_icon import TrayIcon, _make_icon
 
 
 def main() -> None:
@@ -27,6 +29,15 @@ def main() -> None:
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
     app = QApplication(sys.argv)
+    app.setApplicationName("Focus Pomodoro")
+    app.setWindowIcon(_make_icon())
+    from src.ui.appearance import apply_appearance
+
+    apply_appearance(app)
+    if "--smoke-test" in sys.argv:
+        from src.ui.smoke import run_smoke
+
+        sys.exit(run_smoke(app, sys.argv[sys.argv.index("--smoke-test") + 1]))
     app.setQuitOnLastWindowClosed(False)
 
     # Services
@@ -38,9 +49,6 @@ def main() -> None:
     bgm_svc = BgmService(settings, app)
     notification_svc = NotificationService(settings=settings, sound_service=sound_svc)
 
-    # Cleanup old history files (T030)
-    history_svc.cleanup(keep_days=90)
-
     # Engine
     engine = TimerEngine(settings)
 
@@ -49,6 +57,7 @@ def main() -> None:
     widget._settings_service = settings_svc  # inject for position save
     tray = TrayIcon()
     tray.show()
+    notification_svc._tray = tray
 
     # Dashboard
     vm = DashboardViewModel(history_svc)
@@ -65,18 +74,24 @@ def main() -> None:
             dashboard.activateWindow()
 
     def open_settings() -> None:
-        dlg = SettingsDialog(settings, widget)
+        from copy import deepcopy
+
+        dlg = SettingsDialog(deepcopy(settings), widget)
         if dlg.exec():
             new_settings = dlg.get_settings()
+            # Services keep a reference to this shared settings object.
+            settings.__dict__.update(new_settings.__dict__)
+            new_settings = settings
             settings_svc.save(new_settings)
             engine.update_settings(new_settings)
             init_i18n(new_settings.general.language)
             widget.apply_settings(new_settings)
             widget.update_phase(engine.phase)
-            widget.update_daily_count(engine.state.daily_completed_count)
+            refresh_today()
             sound_svc.reload()
             bgm_svc.reload()
             bgm_svc.on_phase_changed(engine.phase)
+            widget.show()
 
     def toggle_mute() -> None:
         settings.behavior.is_muted = not settings.behavior.is_muted
@@ -92,34 +107,43 @@ def main() -> None:
         settings_svc.save(settings)
         app.quit()
 
-    # Unified phase change handler: tracks prev→new for transition notifications.
-    # Sound only fires on meaningful work/break transitions, not pause/resume/reset.
-    _prev_phase = Phase.IDLE
-
+    # Reflect phase changes in the widget, tray icon and BGM (every transition,
+    # including pause/resume/reset).
     def _on_phase_changed(phase_val: str, _idx: int) -> None:
-        nonlocal _prev_phase
         new_phase = Phase(phase_val)
         widget.update_phase(new_phase)
+        widget.update_session_index(_idx)
         tray.update_icon_for_phase(phase_val)
         bgm_svc.on_phase_changed(new_phase)
-        prev = _prev_phase
-        _prev_phase = new_phase
-        if (
-            prev not in (Phase.IDLE, Phase.PAUSED)
-            and new_phase not in (Phase.IDLE, Phase.PAUSED)
-            and prev != new_phase
-        ):
-            notification_svc.notify_phase_change(prev.value, new_phase.value)
+
+    # Notification + sound fire only when a timer naturally expires (not on
+    # manual skip/pause/reset), driven by the engine's phase_completed signal.
+    def _on_phase_completed(from_phase: str, to_phase: str) -> None:
+        notification_svc.notify_phase_change(from_phase, to_phase)
 
     # Wire engine signals
     engine.tick.connect(widget.update_time)
     engine.phase_changed.connect(_on_phase_changed)
-    engine.daily_count_updated.connect(widget.update_daily_count)
+    engine.phase_completed.connect(_on_phase_completed)
     engine.session_completed.connect(history_svc.record_session)
+
+    def refresh_today() -> None:
+        record = history_svc.load_daily(date.today().isoformat())
+        widget.update_daily_count(record.work_sessions_completed if record else 0)
+
+    history_svc.session_recorded.connect(refresh_today)
+    from PyQt6.QtCore import QTimer
+
+    day_timer = QTimer(app)
+    day_timer.setInterval(30_000)
+    day_timer.timeout.connect(refresh_today)
+    day_timer.start()
 
     # Wire widget callbacks
     widget.on_start = engine.start
-    widget.on_pause = lambda: (engine.pause() if engine.phase != Phase.PAUSED else engine.resume())
+    widget.on_pause = lambda: (
+        engine.pause() if engine.phase != Phase.PAUSED else engine.resume()
+    )
     widget.on_reset = engine.reset
     widget.on_skip = engine.skip
     widget.on_mute = toggle_mute
@@ -138,6 +162,7 @@ def main() -> None:
     # Init display
     widget.update_time(settings.timers.work_duration_min * 60)
     widget.update_phase(Phase.IDLE)
+    refresh_today()
     widget.show()
 
     sys.exit(app.exec())
