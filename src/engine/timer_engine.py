@@ -31,6 +31,8 @@ class TimerEngine(QObject):
         self._current_session: TimerSession | None = None
         self._cycle_number = 1
         self._pending_break: tuple[Phase, int] | None = None
+        self._extra_break_rule: tuple[int, int] | None = None
+        self._break_extra_work_sec = 0
 
         self._qt_timer = QTimer(self)
         self._qt_timer.setInterval(1000)
@@ -73,6 +75,8 @@ class TimerEngine(QObject):
             self._finalize_session(SessionStatus.INTERRUPTED)
         self._state = TimerState()
         self._pending_break = None
+        self._extra_break_rule = None
+        self._break_extra_work_sec = 0
         self._current_session = None
         self.phase_changed.emit(Phase.IDLE.value, 1)
         self.tick.emit(self._settings.timers.work_duration_min * 60)
@@ -94,14 +98,31 @@ class TimerEngine(QObject):
         )
         if effective_phase == Phase.EXTRA_WORK and self._pending_break:
             self._qt_timer.stop()
+            elapsed = self._state.extra_work_sec
+            threshold, increment = self._extra_break_rule
+            previous_steps = self._break_extra_work_sec // threshold
+            self._break_extra_work_sec += elapsed
+            added_sec = (
+                self._break_extra_work_sec // threshold - previous_steps
+            ) * increment
             self._finalize_session(SessionStatus.COMPLETED)
             break_phase, duration = self._pending_break
+            duration += added_sec
             self._pending_break = None
             self._state.pre_pause_phase = None
             self._begin_break(break_phase, duration)
         elif effective_phase in (Phase.SHORT_BREAK, Phase.LONG_BREAK):
             self._qt_timer.stop()
-            # Preserve the original break's full duration, including settings changes.
+            # Keep one rule for all extensions of this break, even after edits.
+            if self._extra_break_rule is None:
+                timers = self._settings.timers
+                self._extra_break_rule = (
+                    max(1, timers.extra_work_threshold_min) * 60,
+                    timers.extra_break_increment_min * 60
+                    if timers.extra_break_enabled
+                    else 0,
+                )
+            # Preserve the full break, including any previously earned extra time.
             duration = self._current_session.scheduled_duration_sec
             self._pending_break = (effective_phase, duration)
             if self._current_session.actual_duration_sec:
@@ -128,6 +149,12 @@ class TimerEngine(QObject):
     @property
     def remaining_sec(self) -> int:
         return self._state.remaining_sec
+
+    @property
+    def scheduled_duration_sec(self) -> int:
+        if self._state.phase == Phase.IDLE or self._current_session is None:
+            return self._settings.timers.work_duration_min * 60
+        return self._current_session.scheduled_duration_sec
 
     @property
     def phase(self) -> Phase:
@@ -193,6 +220,8 @@ class TimerEngine(QObject):
             self.phase_completed.emit(from_phase.value, to_phase.value)
 
     def _begin_work_session(self) -> None:
+        self._extra_break_rule = None
+        self._break_extra_work_sec = 0
         sec = self._settings.timers.work_duration_min * 60
         self._state.phase = Phase.WORKING
         self._state.remaining_sec = sec

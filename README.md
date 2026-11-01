@@ -34,6 +34,12 @@ Focus Pomodoroはデスクトップに小さく表示して使うポモドーロ
 
 追加作業中は、同じ位置のボタンが「休憩に入る」に変わります。もう一度押すと、もとの短休憩または長休憩が最初から始まります。追加作業を始める前に休憩時間が少し進んでいても、休憩は全時間ぶん確保されます。
 
+初期設定では、追加作業が合計5分に達するごとに、次の休憩を1分増やします。たとえば追加作業が5分なら短休憩は6分、10分なら7分になります。長休憩にも同じように加算します。5分未満は加算せず、一時停止している時間は数えません。
+
+同じ休憩から何度か追加作業へ戻った場合は、その作業時間を合算します。3分と2分に分けて作業しても、合計5分として休憩を1分増やします。ボタンを押し直すだけで二重に加算されることはありません。次の通常作業へ進むと合計をリセットします。
+
+設定の「追加作業に応じて休憩を増やす」で無効にすることも、追加作業の間隔と増やす休憩時間を変えることもできます。加算ルールは、その休憩で最初に追加作業を始めた時点の設定を使います。途中で設定を変えた場合は、次の休憩から適用します。閾値に達しただけでは音や通知を出さず、「休憩に入る」を押すと加算後の時間が表示されます。
+
 追加作業も一時停止・再開できます。「次へ」を押した場合も、予定していた休憩へ移ります。追加分は作業時間に加算されますが、ポモドーロの完了回数は増えません。追加作業をリセットした場合も、その時点までの作業時間を記録します。
 
 | 作業終了後 | 追加作業中 |
@@ -78,6 +84,9 @@ BGMは作業中と休憩中で別々のファイルを指定できます。そ�
 | 短休憩 | 5分 | 1〜30分 |
 | 長休憩 | 15分 | 5〜60分 |
 | 長休憩までの作業回数 | 4回 | 2〜10回 |
+| 追加作業に応じた休憩加算 | オン | 短休憩・長休憩の両方に適用 |
+| 休憩を増やす追加作業の間隔 | 5分 | 1〜90分 |
+| 間隔ごとに増やす休憩 | 1分 | 1〜30分 |
 | 常に最前面に表示 | オン | 「固定」ボタンからも変更可能 |
 | ウィンドウの不透明度 | 95% | 20〜100% |
 | ホバー時のみ操作ボタンを表示 | オフ | オフなら下部の操作ボタンを常時表示 |
@@ -164,7 +173,7 @@ WindowsではビルドしたEXEにも同じ検査を実行できます。
 .\dist\FocusPomodoro\FocusPomodoro.exe --smoke-test build\focus-windows-preview.png
 ```
 
-追加作業機能を含むテスト76件と、WindowsのEXEのスモークテストを確認しています。長時間の連続運転、スリープ復帰、ログインし直したときの自動起動、通知音の実聴は未確認です。詳しい結果は[Focusの検証記録](docs/focus-validation.md)を参照してください。
+追加作業と休憩加算を含むテスト108件と、WindowsのEXEのスモークテストを確認しています。長時間の連続運転、スリープ復帰、ログインし直したときの自動起動、通知音の実聴は未確認です。詳しい結果は[Focusの検証記録](docs/focus-validation.md)を参照してください。
 
 ## 仕様とコードを読む
 
@@ -195,6 +204,8 @@ Open `FocusPomodoro.exe` from the built distribution folder. Keep its `_internal
 Select “Start focus” to begin. Defaults are 25 minutes of work, a 5-minute short break, and a 15-minute long break after the fourth work session. Breaks begin automatically. After a break, the timer waits for you unless auto-start is enabled. Use “Pause” and “Resume,” or press Space while the timer window is focused. “Skip” moves to the next phase. The menu contains reset, settings, statistics, and quit.
 
 If you want to continue after work ends, select “Keep working” on the break screen. The timer counts additional time upward from `+00:00`. Select “Start break” in the same place when you are ready. Your original short or long break starts with its full duration. Extra work can be paused and resumed; it adds to work time without increasing completed or interrupted session counts.
+
+By default, every full 5 minutes of extra work adds 1 minute to the following break. A 5-minute short break becomes 6 minutes after 5 minutes of extra work, or 7 minutes after 10 minutes. This also applies to long breaks. Repeated extensions of the same break are combined; paused time is excluded. The total resets when the next regular work session begins. Settings let you disable this feature or change the work interval (1–90 minutes) and added break time (1–30 minutes). The rule is captured when extra work first starts for a break, so later edits apply to the next break. Crossing an interval does not trigger an alert.
 
 ### Display, sound, and history
 

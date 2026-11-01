@@ -95,6 +95,9 @@ class TimerSettings:
     short_break_min: int = 5
     long_break_min: int = 15
     sessions_before_long_break: int = 4
+    extra_break_enabled: bool = True
+    extra_work_threshold_min: int = 5
+    extra_break_increment_min: int = 1
 
     def validate(self) -> None:
         if not (5 <= self.work_duration_min <= 90):
@@ -105,6 +108,10 @@ class TimerSettings:
             raise ValueError("long_break_min must be 5–60")
         if not (2 <= self.sessions_before_long_break <= 10):
             raise ValueError("sessions_before_long_break must be 2–10")
+        if not (1 <= self.extra_work_threshold_min <= 90):
+            raise ValueError("extra_work_threshold_min must be 1–90")
+        if not (1 <= self.extra_break_increment_min <= 30):
+            raise ValueError("extra_break_increment_min must be 1–30")
 
 
 @dataclass
@@ -174,6 +181,9 @@ class AppSettings:
                 "short_break_min": self.timers.short_break_min,
                 "long_break_min": self.timers.long_break_min,
                 "sessions_before_long_break": self.timers.sessions_before_long_break,
+                "extra_break_enabled": self.timers.extra_break_enabled,
+                "extra_work_threshold_min": self.timers.extra_work_threshold_min,
+                "extra_break_increment_min": self.timers.extra_break_increment_min,
             },
             "behavior": {
                 "auto_start_next_session": self.behavior.auto_start_next_session,
@@ -223,6 +233,9 @@ class AppSettings:
                 short_break_min=t.get("short_break_min", 5),
                 long_break_min=t.get("long_break_min", 15),
                 sessions_before_long_break=t.get("sessions_before_long_break", 4),
+                extra_break_enabled=t.get("extra_break_enabled", True),
+                extra_work_threshold_min=t.get("extra_work_threshold_min", 5),
+                extra_break_increment_min=t.get("extra_break_increment_min", 1),
             ),
             behavior=BehaviorSettings(
                 auto_start_next_session=b.get("auto_start_next_session", False),

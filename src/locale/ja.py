@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 STRINGS: dict[str, str] = {
+    "settings.checkbox.extra_break": "追加作業に応じて休憩を増やす",
+    "settings.label.extra_threshold": "追加作業の間隔:",
+    "settings.label.extra_increment": "間隔ごとに増やす休憩:",
+    "settings.label.extra_break_hint": "例：追加作業5分ごとに休憩を1分追加。短休憩・長休憩の両方が対象です。同じ休憩に戻る追加作業は合算します。設定の変更は次に追加作業を始める休憩から適用します。",
     # フェーズ名
     "phase.idle": "待機中",
     "phase.working": "作業中",

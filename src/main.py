@@ -118,6 +118,7 @@ def main() -> None:
     def _on_phase_changed(phase_val: str, _idx: int) -> None:
         new_phase = Phase(phase_val)
         widget.update_phase(new_phase)
+        widget.update_duration(engine.scheduled_duration_sec)
         widget.update_session_index(_idx)
         tray.update_icon_for_phase(phase_val)
         bgm_svc.on_phase_changed(new_phase)

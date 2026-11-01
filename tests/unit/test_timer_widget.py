@@ -110,3 +110,17 @@ def test_extra_work_button_and_elapsed_display(widget, app, language):
     assert widget._time_label.text() == "05:00"
     assert widget._progress.value() == 0
     init("ja")
+
+
+def test_augmented_break_progress_survives_settings_and_pause(widget):
+    widget.update_phase(Phase.SHORT_BREAK)
+    widget.update_duration(420)
+    widget.update_time(210)
+    assert widget._progress.value() == 500
+    changed = AppSettings()
+    changed.timers.short_break_min = 10
+    widget.apply_settings(changed)
+    assert widget._progress.value() == 500
+    widget.update_phase(Phase.PAUSED)
+    widget.update_phase(Phase.SHORT_BREAK)
+    assert widget._progress.value() == 500

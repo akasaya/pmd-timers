@@ -11,6 +11,10 @@ STRINGS: dict[str, str] = {
     "widget.muted": "Muted",
     "widget.mute_hint": "Toggle notification sound and BGM",
     "widget.drag_hint": "Drag to move",
+    "settings.checkbox.extra_break": "Add break time for extra work",
+    "settings.label.extra_threshold": "Extra work interval:",
+    "settings.label.extra_increment": "Break added per interval:",
+    "settings.label.extra_break_hint": "Example: add 1 minute of break for every 5 minutes of extra work. Applies to short and long breaks. Repeated extensions of the same break are combined. Changes apply to the next break with extra work.",
     # Phase names
     "phase.idle": "Idle",
     "phase.working": "Working",

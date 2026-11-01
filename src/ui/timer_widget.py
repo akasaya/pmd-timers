@@ -213,6 +213,10 @@ class TimerWidget(QWidget):
         )
         self.setWindowTitle(f"{prefix}{minutes:02d}:{seconds:02d} · Focus")
 
+    def update_duration(self, duration_sec: int) -> None:
+        self._duration = duration_sec
+        self.update_time(self._remaining)
+
     def update_phase(self, phase: Phase) -> None:
         previous = self._current_phase
         previous_display = self._display_phase
@@ -423,7 +427,10 @@ class TimerWidget(QWidget):
             Qt.WindowType.WindowStaysOnTopHint, settings.ui.always_on_top
         )
         self.update_mute_state(settings.behavior.is_muted)
+        duration = self._duration
         self.update_phase(self._current_phase)
+        if self._current_phase != Phase.IDLE:
+            self.update_duration(duration)
         self.update_session_index(self._session_index)
         self.update_daily_count(self._daily_count)
         if self._current_phase == Phase.IDLE:

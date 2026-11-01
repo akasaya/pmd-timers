@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSlider,
     QSpinBox,
     QVBoxLayout,
@@ -64,7 +65,13 @@ class SettingsDialog(QDialog):
         super().hideEvent(event)
 
     def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
 
         # Timer group
         timer_group = QGroupBox(t("settings.group.timer"))
@@ -92,6 +99,26 @@ class SettingsDialog(QDialog):
         self._sessions_spin.setRange(2, 10)
         self._sessions_spin.setValue(self._settings.timers.sessions_before_long_break)
         timer_form.addRow(t("settings.label.sessions_before_long"), self._sessions_spin)
+
+        self._extra_break_check = QCheckBox(t("settings.checkbox.extra_break"))
+        self._extra_break_check.setChecked(self._settings.timers.extra_break_enabled)
+        timer_form.addRow(self._extra_break_check)
+        self._extra_threshold_spin = QSpinBox()
+        self._extra_threshold_spin.setRange(1, 90)
+        self._extra_threshold_spin.setSuffix(t("settings.suffix.minutes"))
+        self._extra_threshold_spin.setValue(self._settings.timers.extra_work_threshold_min)
+        timer_form.addRow(t("settings.label.extra_threshold"), self._extra_threshold_spin)
+        self._extra_increment_spin = QSpinBox()
+        self._extra_increment_spin.setRange(1, 30)
+        self._extra_increment_spin.setSuffix(t("settings.suffix.minutes"))
+        self._extra_increment_spin.setValue(self._settings.timers.extra_break_increment_min)
+        timer_form.addRow(t("settings.label.extra_increment"), self._extra_increment_spin)
+        for spin in (self._extra_threshold_spin, self._extra_increment_spin):
+            spin.setEnabled(self._extra_break_check.isChecked())
+            self._extra_break_check.toggled.connect(spin.setEnabled)
+        extra_hint = QLabel(t("settings.label.extra_break_hint"))
+        extra_hint.setWordWrap(True)
+        timer_form.addRow(extra_hint)
 
         timer_group.setLayout(timer_form)
         layout.addWidget(timer_group)
@@ -291,7 +318,9 @@ class SettingsDialog(QDialog):
         buttons.accepted.connect(self._apply)
         buttons.rejected.connect(self.reject)
         reset_btn.clicked.connect(self._reset)
-        layout.addWidget(buttons)
+        outer.addWidget(buttons)
+        available = self.screen().availableGeometry()
+        self.resize(min(560, available.width()), min(760, available.height() - 60))
 
     # ── Sound helpers ──────────────────────────────────────────────────
 
@@ -429,6 +458,9 @@ class SettingsDialog(QDialog):
         self._settings.timers.short_break_min = self._short_spin.value()
         self._settings.timers.long_break_min = self._long_spin.value()
         self._settings.timers.sessions_before_long_break = self._sessions_spin.value()
+        self._settings.timers.extra_break_enabled = self._extra_break_check.isChecked()
+        self._settings.timers.extra_work_threshold_min = self._extra_threshold_spin.value()
+        self._settings.timers.extra_break_increment_min = self._extra_increment_spin.value()
         self._settings.ui.window_opacity = self._opacity_slider.value() / 100.0
         self._settings.ui.hover_reveal_buttons = self._hover_check.isChecked()
         self._settings.ui.always_on_top = self._ontop_check.isChecked()
@@ -458,6 +490,9 @@ class SettingsDialog(QDialog):
         self._short_spin.setValue(defaults.timers.short_break_min)
         self._long_spin.setValue(defaults.timers.long_break_min)
         self._sessions_spin.setValue(defaults.timers.sessions_before_long_break)
+        self._extra_break_check.setChecked(defaults.timers.extra_break_enabled)
+        self._extra_threshold_spin.setValue(defaults.timers.extra_work_threshold_min)
+        self._extra_increment_spin.setValue(defaults.timers.extra_break_increment_min)
         self._opacity_slider.setValue(int(defaults.ui.window_opacity * 100))
         self._hover_check.setChecked(defaults.ui.hover_reveal_buttons)
         self._ontop_check.setChecked(defaults.ui.always_on_top)

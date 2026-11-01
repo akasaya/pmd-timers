@@ -31,6 +31,7 @@ def run_smoke(app, destination: str) -> int:
     engine.phase_changed.connect(
         lambda phase, index: (
             widget.update_phase(Phase(phase)),
+            widget.update_duration(engine.scheduled_duration_sec),
             widget.update_session_index(index),
         )
     )
@@ -56,9 +57,18 @@ def run_smoke(app, destination: str) -> int:
     assert engine.phase == Phase.PAUSED
     widget._start_btn.click()
     assert engine.phase == Phase.EXTRA_WORK
+    for _ in range(299):
+        engine._on_tick()
     widget._extra_work_btn.click()
     assert engine.phase == Phase.SHORT_BREAK
-    assert widget._time_label.text() == "05:00"
+    assert widget._time_label.text() == "06:00"
+    assert widget._progress.value() == 0
+    for _ in range(180):
+        engine._on_tick()
+    assert widget._progress.value() == 500
+    widget._pause_btn.click()
+    widget._start_btn.click()
+    assert widget._progress.value() == 500
     engine.reset()
     widget._pin_btn.click()
     assert not widget.windowFlags() & Qt.WindowType.WindowStaysOnTopHint

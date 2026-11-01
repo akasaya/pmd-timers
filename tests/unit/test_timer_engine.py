@@ -185,7 +185,7 @@ def test_long_extension_does_not_repeat_completion_sound(settings):
     assert received == [("working", "short_break")]
     engine.toggle_extra_work()
     engine._qt_timer.stop()
-    for _ in range(settings.timers.short_break_min * 60):
+    for _ in range(engine.remaining_sec):
         engine._on_tick()
     assert received == [("working", "short_break"), ("short_break", "working")]
     for _ in range(3600):
