@@ -231,7 +231,9 @@ class SoundService(QObject):
         self._cleanup_temp()
         self._load_sound()
 
-    def _on_playing_changed(self, playing: bool) -> None:
+    def _on_playing_changed(self, playing: bool | None = None) -> None:
+        if playing is None:
+            playing = self._effect.isPlaying() if self._effect is not None else False
         if not playing:
             self._timeout.stop()
             self._cleanup_temp()

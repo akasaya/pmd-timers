@@ -2,9 +2,21 @@
 from __future__ import annotations
 
 STRINGS: dict[str, str] = {
+    "widget.start": "Start focus",
+    "widget.resume": "Resume",
+    "widget.pause": "Pause",
+    "widget.skip": "Skip",
+    "widget.pin": "Pin",
+    "widget.sound": "Sound",
+    "widget.muted": "Muted",
+    "widget.mute_hint": "Toggle notification sound and BGM",
+    "widget.drag_hint": "Drag to move",
     # Phase names
     "phase.idle": "Idle",
     "phase.working": "Working",
+    "phase.extra_work": "Extra work",
+    "widget.extra_work": "Keep working",
+    "widget.finish_extra_work": "Start break",
     "phase.short_break": "Short Break",
     "phase.long_break": "Long Break",
     "phase.paused": "Paused",

@@ -85,7 +85,7 @@ class BgmService(QObject):
         if self._settings.behavior.is_muted:
             return
         bgm = self._settings.bgm
-        if phase == Phase.WORKING:
+        if phase in (Phase.WORKING, Phase.EXTRA_WORK):
             if bgm.work_bgm_enabled and bgm.work_bgm_path and Path(bgm.work_bgm_path).exists():
                 self._work.play()
         elif phase in (Phase.SHORT_BREAK, Phase.LONG_BREAK):
