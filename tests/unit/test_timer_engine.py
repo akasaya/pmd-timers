@@ -168,3 +168,27 @@ def test_old_work_history_defaults_to_regular_session(settings):
     del old_data["is_extension"]
     assert not TimerSession.from_dict(old_data).is_extension
     engine.reset()
+
+
+def test_long_extension_does_not_repeat_completion_sound(settings):
+    engine = TimerEngine(settings)
+    received = _completions(engine)
+    engine.start()
+    engine._qt_timer.stop()
+    for _ in range(settings.timers.work_duration_min * 60):
+        engine._on_tick()
+    assert received == [("working", "short_break")]
+    engine.toggle_extra_work()
+    engine._qt_timer.stop()
+    for _ in range(3600):
+        engine._on_tick()
+    assert received == [("working", "short_break")]
+    engine.toggle_extra_work()
+    engine._qt_timer.stop()
+    for _ in range(settings.timers.short_break_min * 60):
+        engine._on_tick()
+    assert received == [("working", "short_break"), ("short_break", "working")]
+    for _ in range(3600):
+        engine._on_tick()
+    assert len(received) == 2
+    engine.reset()

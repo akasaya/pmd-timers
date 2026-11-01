@@ -77,8 +77,12 @@ def main() -> None:
         from copy import deepcopy
 
         dlg = SettingsDialog(deepcopy(settings), widget)
-        if dlg.exec():
-            new_settings = dlg.get_settings()
+        try:
+            new_settings = dlg.get_settings() if dlg.exec() else None
+        finally:
+            dlg.stop_previews()
+            dlg.deleteLater()
+        if new_settings is not None:
             # Services keep a reference to this shared settings object.
             settings.__dict__.update(new_settings.__dict__)
             new_settings = settings
@@ -98,11 +102,13 @@ def main() -> None:
         settings_svc.save(settings)
         widget.update_mute_state(settings.behavior.is_muted)
         if settings.behavior.is_muted:
+            sound_svc.stop()
             bgm_svc.stop()
         else:
             bgm_svc.on_phase_changed(engine.phase)
 
     def quit_app() -> None:
+        sound_svc.stop()
         bgm_svc.stop()
         settings_svc.save(settings)
         app.quit()

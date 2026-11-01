@@ -146,10 +146,15 @@ class SoundService(QObject):
 
     def _on_playback_finished(self) -> None:
         """Called on timeout: stop sound and clean up any temp WAV file."""
-        self._stop_sound()
-        self._cleanup_temp()
+        self.stop()
 
     # ── Public API ────────────────────────────────────────────────────
+
+    def stop(self) -> None:
+        """Stop the current notification and cancel its pending cutoff."""
+        self._timeout.stop()
+        self._stop_sound()
+        self._cleanup_temp()
 
     def play(self) -> None:
         if not self._settings.notifications.sound_enabled:
@@ -226,9 +231,7 @@ class SoundService(QObject):
 
     def reload(self) -> None:
         """Reload sound file after settings change."""
-        self._stop_sound()
-        self._timeout.stop()
-        self._cleanup_temp()
+        self.stop()
         self._load_sound()
 
     def _on_playing_changed(self, playing: bool | None = None) -> None:

@@ -53,6 +53,16 @@ class SettingsDialog(QDialog):
         self._bgm_preview = BgmService(settings, self)
         self._build_ui()
 
+    def stop_previews(self) -> None:
+        """Stop preview audio independently of the saved BGM preferences."""
+        self._preview_svc.stop()
+        self._bgm_preview.stop()
+
+    def hideEvent(self, event) -> None:
+        # OK, Cancel, Escape and window close hide a QDialog without deleting it.
+        self.stop_previews()
+        super().hideEvent(event)
+
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
@@ -344,6 +354,7 @@ class SettingsDialog(QDialog):
             self._update_trim_sliders()
 
     def _preview_sound(self) -> None:
+        self.stop_previews()
         # Temporarily reflect current UI state so preview respects it
         original_enabled = self._settings.notifications.sound_enabled
         original_start = self._settings.notifications.sound_start_ms
@@ -384,7 +395,7 @@ class SettingsDialog(QDialog):
             self._break_bgm_label.setText(Path(path).name)
 
     def _preview_work_bgm(self) -> None:
-        self._bgm_preview.stop()
+        self.stop_previews()
         orig_path = self._settings.bgm.work_bgm_path
         orig_vol = self._settings.bgm.work_bgm_volume
         orig_enabled = self._settings.bgm.work_bgm_enabled
@@ -398,7 +409,7 @@ class SettingsDialog(QDialog):
         self._settings.bgm.work_bgm_enabled = orig_enabled
 
     def _preview_break_bgm(self) -> None:
-        self._bgm_preview.stop()
+        self.stop_previews()
         orig_path = self._settings.bgm.break_bgm_path
         orig_vol = self._settings.bgm.break_bgm_volume
         orig_enabled = self._settings.bgm.break_bgm_enabled
@@ -441,6 +452,7 @@ class SettingsDialog(QDialog):
         self.accept()
 
     def _reset(self) -> None:
+        self.stop_previews()
         defaults = AppSettings()
         self._work_spin.setValue(defaults.timers.work_duration_min)
         self._short_spin.setValue(defaults.timers.short_break_min)
