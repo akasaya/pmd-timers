@@ -148,6 +148,14 @@ powershell -ExecutionPolicy Bypass -File scripts/install_windows.ps1 -AutoStart
 
 ## 開発時の検証
 
+GitHub Actions の `Tests` は、`main` 宛てのPR（draftを含む）と `main` へのpush時に、Python 3.12 / Ubuntu の標準runnerで次を実行します。手動実行も可能です。
+
+- `ruff check src tests --select E9,F63,F7,F82`（構文・致命的エラーのみ）
+- `QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q`
+- `QT_QPA_PLATFORM=offscreen python -m src.main --smoke-test build/focus-preview.png`
+
+通常の `ruff check src tests` に残る既存のlint指摘は、このCIの対象外です。コードレビューはGitHubに接続したCodexで行い、このリポジトリはPR作成時に自動レビューする設定です。draftでは自動レビューが開始しない場合があります。以前のGemini PR Agentとその設定は削除しました。CIは外部AIのAPIキーを使いません。
+
 Linuxではプロジェクトの仮想環境から次のようにテストできます。
 
 ```bash
