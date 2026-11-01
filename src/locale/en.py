@@ -14,6 +14,9 @@ STRINGS: dict[str, str] = {
     # Phase names
     "phase.idle": "Idle",
     "phase.working": "Working",
+    "phase.extra_work": "Extra work",
+    "widget.extra_work": "Keep working",
+    "widget.finish_extra_work": "Start break",
     "phase.short_break": "Short Break",
     "phase.long_break": "Long Break",
     "phase.paused": "Paused",

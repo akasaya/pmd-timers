@@ -75,3 +75,38 @@ def test_old_small_window_fits_controls(widget, app):
     assert widget.width() >= 300
     assert widget.height() >= 248
     assert widget.rect().contains(widget._btn_container.geometry())
+
+
+@pytest.mark.parametrize("language", ["ja", "en"])
+def test_extra_work_button_and_elapsed_display(widget, app, language):
+    init(language)
+    widget.update_phase(Phase.IDLE)
+    assert not widget._extra_work_btn.isVisible()
+    widget.update_phase(Phase.WORKING)
+    assert not widget._extra_work_btn.isVisible()
+    widget.update_phase(Phase.LONG_BREAK)
+    assert widget._extra_work_btn.isVisible()
+    assert widget._extra_work_btn.text() == (
+        "作業を続ける" if language == "ja" else "Keep working"
+    )
+    widget.update_phase(Phase.EXTRA_WORK)
+    widget.update_time(65)
+    assert widget._time_label.text() == "+01:05"
+    assert widget._extra_work_btn.text() == (
+        "休憩に入る" if language == "ja" else "Start break"
+    )
+    widget.update_phase(Phase.PAUSED)
+    widget.apply_settings(AppSettings())
+    assert widget._time_label.text() == "+01:05"
+    assert widget._extra_work_btn.isVisible()
+    app.processEvents()
+    assert widget.rect().contains(widget._extra_work_btn.geometry())
+    assert not widget._extra_work_btn.geometry().intersects(
+        widget._count_label.geometry()
+    )
+    assert widget._extra_work_btn.width() >= widget._extra_work_btn.sizeHint().width()
+    widget.update_phase(Phase.SHORT_BREAK)
+    widget.update_time(300)
+    assert widget._time_label.text() == "05:00"
+    assert widget._progress.value() == 0
+    init("ja")

@@ -60,6 +60,7 @@ class TrayIcon(QSystemTrayIcon):
     def update_icon_for_phase(self, phase_value: str) -> None:
         colors = {
             "working": "#86e1c3",
+            "extra_work": "#86e1c3",
             "short_break": "#9bc9ff",
             "long_break": "#c5b3ff",
             "paused": "#f1c780",

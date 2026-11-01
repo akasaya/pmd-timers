@@ -26,6 +26,7 @@ def run_smoke(app, destination: str) -> int:
         engine.resume() if engine.phase == Phase.PAUSED else engine.pause()
     )
     widget.on_skip = engine.skip
+    widget.on_extra_work = engine.toggle_extra_work
     engine.tick.connect(widget.update_time)
     engine.phase_changed.connect(
         lambda phase, index: (
@@ -45,6 +46,17 @@ def run_smoke(app, destination: str) -> int:
     widget._start_btn.click()
     assert engine.phase == Phase.WORKING
     widget._skip_btn.click()
+    assert engine.phase == Phase.SHORT_BREAK
+    assert widget._time_label.text() == "05:00"
+    widget._extra_work_btn.click()
+    assert engine.phase == Phase.EXTRA_WORK
+    engine._on_tick()
+    assert widget._time_label.text() == "+00:01"
+    widget._pause_btn.click()
+    assert engine.phase == Phase.PAUSED
+    widget._start_btn.click()
+    assert engine.phase == Phase.EXTRA_WORK
+    widget._extra_work_btn.click()
     assert engine.phase == Phase.SHORT_BREAK
     assert widget._time_label.text() == "05:00"
     engine.reset()

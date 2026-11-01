@@ -51,12 +51,13 @@ class TestBgmService:
             svc.on_phase_changed(Phase.WORKING)
             mock_play.assert_not_called()
 
-    def test_work_bgm_plays_on_working_phase(self, settings_with_work_bgm):
+    @pytest.mark.parametrize("phase", [Phase.WORKING, Phase.EXTRA_WORK])
+    def test_work_bgm_plays_on_working_phase(self, settings_with_work_bgm, phase):
         """on_phase_changed(WORKING) calls play() on work player when enabled."""
         from src.services.bgm_service import BgmService
         svc = BgmService(settings_with_work_bgm)
         with patch.object(svc._work, "play") as mock_play:
-            svc.on_phase_changed(Phase.WORKING)
+            svc.on_phase_changed(phase)
             mock_play.assert_called_once()
 
     def test_break_bgm_plays_on_short_break(self, settings_with_break_bgm):

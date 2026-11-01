@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 _PHASE_KEYS = {
     Phase.IDLE: "phase.idle",
     Phase.WORKING: "phase.working",
+    Phase.EXTRA_WORK: "phase.extra_work",
     Phase.SHORT_BREAK: "phase.short_break",
     Phase.LONG_BREAK: "phase.long_break",
     Phase.PAUSED: "phase.paused",
@@ -42,6 +43,7 @@ _PHASE_KEYS = {
 _PHASE_COLORS = {
     Phase.IDLE: "#86e1c3",
     Phase.WORKING: "#86e1c3",
+    Phase.EXTRA_WORK: "#86e1c3",
     Phase.SHORT_BREAK: "#9bc9ff",
     Phase.LONG_BREAK: "#c5b3ff",
     Phase.PAUSED: "#f1c780",
@@ -55,6 +57,7 @@ class TimerWidget(QWidget):
         self._settings_service: SettingsService | None = None
         self._drag_start: QPoint | None = None
         self._current_phase = Phase.IDLE
+        self._display_phase = Phase.IDLE
         self._session_index = 1
         self._duration = settings.timers.work_duration_min * 60
         self._remaining = self._duration
@@ -64,6 +67,7 @@ class TimerWidget(QWidget):
             "pause",
             "reset",
             "skip",
+            "extra_work",
             "mute",
             "open_settings",
             "open_dashboard",
@@ -153,6 +157,9 @@ class TimerWidget(QWidget):
         footer.addWidget(self._count_label)
         footer.addStretch()
         footer.addWidget(self._hint)
+        self._extra_work_btn = self._make_btn("", lambda: self.on_extra_work())
+        self._extra_work_btn.setFixedHeight(26)
+        footer.addWidget(self._extra_work_btn)
         layout.addLayout(footer)
         layout.addStretch()
 
@@ -194,16 +201,28 @@ class TimerWidget(QWidget):
     def update_time(self, remaining_sec: int) -> None:
         self._remaining = max(0, remaining_sec)
         minutes, seconds = divmod(self._remaining, 60)
-        self._time_label.setText(f"{minutes:02d}:{seconds:02d}")
+        extra_work = self._display_phase == Phase.EXTRA_WORK
+        prefix = "+" if extra_work else ""
+        self._time_label.setText(f"{prefix}{minutes:02d}:{seconds:02d}")
         self._progress.setValue(
-            round(1000 * max(0, min(1, 1 - self._remaining / max(1, self._duration))))
+            1000
+            if extra_work
+            else round(
+                1000 * max(0, min(1, 1 - self._remaining / max(1, self._duration)))
+            )
         )
-        self.setWindowTitle(f"{minutes:02d}:{seconds:02d} · Focus")
+        self.setWindowTitle(f"{prefix}{minutes:02d}:{seconds:02d} · Focus")
 
     def update_phase(self, phase: Phase) -> None:
         previous = self._current_phase
+        previous_display = self._display_phase
         self._current_phase = phase
-        if phase == Phase.IDLE or (phase != Phase.PAUSED and previous != Phase.PAUSED):
+        if phase != Phase.PAUSED:
+            self._display_phase = phase
+        if phase == Phase.IDLE or (
+            phase != Phase.PAUSED
+            and (previous != Phase.PAUSED or phase != previous_display)
+        ):
             timers = self._settings.timers
             self._duration = {
                 Phase.SHORT_BREAK: timers.short_break_min * 60,
@@ -219,10 +238,30 @@ class TimerWidget(QWidget):
         self._start_btn.setText(
             t("widget.resume") if phase == Phase.PAUSED else t("widget.start")
         )
-        running = phase in (Phase.WORKING, Phase.SHORT_BREAK, Phase.LONG_BREAK)
+        running = phase in (
+            Phase.WORKING,
+            Phase.EXTRA_WORK,
+            Phase.SHORT_BREAK,
+            Phase.LONG_BREAK,
+        )
         self._start_btn.setVisible(not running)
         self._pause_btn.setVisible(running)
         self._skip_btn.setEnabled(running)
+        extra_available = self._display_phase in (
+            Phase.SHORT_BREAK,
+            Phase.LONG_BREAK,
+            Phase.EXTRA_WORK,
+        )
+        self._extra_work_btn.setVisible(extra_available)
+        self._hint.setVisible(not extra_available)
+        self._extra_work_btn.setText(
+            t(
+                "widget.finish_extra_work"
+                if self._display_phase == Phase.EXTRA_WORK
+                else "widget.extra_work"
+            )
+        )
+        self._extra_work_btn.setAccessibleName(self._extra_work_btn.text())
         self.update_time(self._remaining)
 
     def update_session_index(self, index: int) -> None:

@@ -11,6 +11,7 @@ from typing import Optional
 class Phase(Enum):
     IDLE = "idle"
     WORKING = "working"
+    EXTRA_WORK = "extra_work"
     SHORT_BREAK = "short_break"
     LONG_BREAK = "long_break"
     PAUSED = "paused"
@@ -40,6 +41,7 @@ class TimerSession:
     end_time: Optional[str] = None
     actual_duration_sec: int = 0
     status: SessionStatus = SessionStatus.INTERRUPTED
+    is_extension: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -51,6 +53,7 @@ class TimerSession:
             "scheduled_duration_sec": self.scheduled_duration_sec,
             "actual_duration_sec": self.actual_duration_sec,
             "status": self.status.value,
+            "is_extension": self.is_extension,
             "session_index": self.session_index,
             "cycle_number": self.cycle_number,
         }
@@ -66,6 +69,7 @@ class TimerSession:
             scheduled_duration_sec=data["scheduled_duration_sec"],
             actual_duration_sec=data.get("actual_duration_sec", 0),
             status=SessionStatus(data.get("status", "interrupted")),
+            is_extension=data.get("is_extension", False),
             session_index=data["session_index"],
             cycle_number=data["cycle_number"],
         )
@@ -76,6 +80,7 @@ class TimerState:
     phase: Phase = Phase.IDLE
     pre_pause_phase: Optional[Phase] = None
     remaining_sec: int = 0
+    extra_work_sec: int = 0
     current_session_index: int = 1
     daily_completed_count: int = 0
     is_sleep_paused: bool = False
@@ -296,7 +301,9 @@ class DailyRecord:
     def add_session(self, session: TimerSession) -> None:
         self.sessions.append(session)
         if session.type == SessionType.WORK:
-            if session.status == SessionStatus.COMPLETED:
+            if session.is_extension:
+                self.total_work_sec += session.actual_duration_sec
+            elif session.status == SessionStatus.COMPLETED:
                 self.work_sessions_completed += 1
                 self.total_work_sec += session.actual_duration_sec
             else:

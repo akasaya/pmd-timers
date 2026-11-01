@@ -146,6 +146,7 @@ def main() -> None:
     )
     widget.on_reset = engine.reset
     widget.on_skip = engine.skip
+    widget.on_extra_work = engine.toggle_extra_work
     widget.on_mute = toggle_mute
     widget.on_open_settings = open_settings
     widget.on_open_dashboard = open_dashboard
